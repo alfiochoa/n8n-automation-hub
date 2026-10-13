@@ -157,3 +157,12 @@ def test_27_persistence_failure_goes_to_dead_letter(triage, key):
     assert r.status_code == 202 and j["accepted"] and "dead-letter" in j["trace"]
     row = db(f"select source,status from hub.dead_letters where payload->>'idempotency_key'='{key}'")
     assert row and row[0]["source"] == "support-triage-ai" and row[0]["status"] == "pending"
+
+
+def test_28_demo_switch_simulates_llm_outage_without_calling_the_llm(triage, key):
+    j = triage({**msg("I was charged twice"), "simulate_llm_outage": True}, key).json()
+    assert j["ticket"]["classifier"] == "fallback" and j["ticket"]["fallback_reason"] == "simulated_llm_outage" and j["ticket"]["category"] == "billing"
+
+
+def test_29_demo_switch_must_be_boolean(triage):
+    assert triage({**msg("valid text here"), "simulate_llm_outage": "yes"}).status_code == 422

@@ -11,7 +11,7 @@
       "typeVersion": 1,
       "position": [
         0,
-        220
+        150
       ]
     },
     {
@@ -23,8 +23,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        250,
-        220
+        230,
+        150
       ]
     },
     {
@@ -40,8 +40,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        500,
-        220
+        460,
+        150
       ],
       "credentials": {
         "postgres": {
@@ -63,8 +63,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        750,
-        220
+        690,
+        150
       ]
     },
     {
@@ -84,8 +84,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        1000,
-        220
+        920,
+        150
       ],
       "onError": "continueRegularOutput"
     },
@@ -101,8 +101,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -20,
-        -80
+        0,
+        -110
       ]
     }
   ],

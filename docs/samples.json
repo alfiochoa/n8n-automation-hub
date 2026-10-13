@@ -1,0 +1,521 @@
+{
+ "lead-hot": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "decision": {
+    "tier": "hot",
+    "score": 100,
+    "route": "notify_sales_now"
+   },
+   "reasons": [
+    {
+     "rule": "domain_accepts_mail",
+     "points": 20
+    },
+    {
+     "rule": "business_domain",
+     "points": 20
+    },
+    {
+     "rule": "company_given",
+     "points": 10
+    },
+    {
+     "rule": "phone_valid",
+     "points": 10
+    },
+    {
+     "rule": "full_name",
+     "points": 5
+    },
+    {
+     "rule": "intent_budget_or_pricing",
+     "points": 15
+    },
+    {
+     "rule": "intent_urgency",
+     "points": 10
+    },
+    {
+     "rule": "target_region",
+     "points": 5
+    },
+    {
+     "rule": "high_income_market",
+     "points": 5
+    }
+   ],
+   "enrichment": {
+    "mx": "ok",
+    "region": "North America",
+    "income_level": "High income"
+   },
+   "normalized": {
+    "name": "Jane Doe",
+    "email": "cto@stripe.com",
+    "country": "US",
+    "phone": "+14155550100"
+   },
+   "notified": true,
+   "idempotency_key": "sample-19a1e7-lead-hot",
+   "trace": [
+    "webhook",
+    "validate",
+    "normalise",
+    "dedupe:new",
+    "enrich:mx",
+    "enrich:country",
+    "score",
+    "persist",
+    "route:hot",
+    "notify",
+    "respond"
+   ]
+  }
+ },
+ "lead-warm": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "decision": {
+    "tier": "warm",
+    "score": 65,
+    "route": "notify_and_nurture"
+   },
+   "reasons": [
+    {
+     "rule": "domain_accepts_mail",
+     "points": 20
+    },
+    {
+     "rule": "free_mailbox",
+     "points": 0
+    },
+    {
+     "rule": "full_name",
+     "points": 5
+    },
+    {
+     "rule": "target_region",
+     "points": 5
+    },
+    {
+     "rule": "high_income_market",
+     "points": 5
+    }
+   ],
+   "enrichment": {
+    "mx": "ok",
+    "region": "Europe & Central Asia",
+    "income_level": "High income"
+   },
+   "normalized": {
+    "name": "John Smith",
+    "email": "john.smith@gmail.com",
+    "country": "GB",
+    "phone": null
+   },
+   "notified": true,
+   "idempotency_key": "sample-19a1e7-lead-warm",
+   "trace": [
+    "webhook",
+    "validate",
+    "normalise",
+    "dedupe:new",
+    "enrich:mx",
+    "enrich:country",
+    "score",
+    "persist",
+    "route:warm",
+    "notify",
+    "respond"
+   ]
+  }
+ },
+ "lead-cold": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "decision": {
+    "tier": "cold",
+    "score": 0,
+    "route": "log_only"
+   },
+   "reasons": [
+    {
+     "rule": "domain_accepts_mail",
+     "points": 20
+    },
+    {
+     "rule": "disposable_domain",
+     "points": -50
+    }
+   ],
+   "enrichment": {
+    "mx": "ok",
+    "region": null,
+    "income_level": null
+   },
+   "normalized": {
+    "name": "",
+    "email": "x1@mailinator.com",
+    "country": null,
+    "phone": null
+   },
+   "notified": null,
+   "idempotency_key": "sample-19a1e7-lead-cold",
+   "trace": [
+    "webhook",
+    "validate",
+    "normalise",
+    "dedupe:new",
+    "enrich:mx",
+    "score",
+    "persist",
+    "route:cold",
+    "respond"
+   ]
+  }
+ },
+ "lead-spam": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "decision": {
+    "tier": "cold",
+    "score": 20,
+    "route": "log_only"
+   },
+   "reasons": [
+    {
+     "rule": "domain_accepts_mail",
+     "points": 20
+    },
+    {
+     "rule": "free_mailbox",
+     "points": 0
+    },
+    {
+     "rule": "spam_keywords",
+     "points": -30
+    }
+   ],
+   "enrichment": {
+    "mx": "ok",
+    "region": null,
+    "income_level": null
+   },
+   "normalized": {
+    "name": "",
+    "email": "seo.team@gmail.com",
+    "country": null,
+    "phone": null
+   },
+   "notified": null,
+   "idempotency_key": "sample-19a1e7-lead-spam",
+   "trace": [
+    "webhook",
+    "validate",
+    "normalise",
+    "dedupe:new",
+    "enrich:mx",
+    "score",
+    "persist",
+    "route:cold",
+    "respond"
+   ]
+  }
+ },
+ "lead-es": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "decision": {
+    "tier": "hot",
+    "score": 100,
+    "route": "notify_sales_now"
+   },
+   "reasons": [
+    {
+     "rule": "domain_accepts_mail",
+     "points": 20
+    },
+    {
+     "rule": "business_domain",
+     "points": 20
+    },
+    {
+     "rule": "company_given",
+     "points": 10
+    },
+    {
+     "rule": "phone_valid",
+     "points": 10
+    },
+    {
+     "rule": "full_name",
+     "points": 5
+    },
+    {
+     "rule": "target_region",
+     "points": 5
+    },
+    {
+     "rule": "high_income_market",
+     "points": 5
+    }
+   ],
+   "enrichment": {
+    "mx": "ok",
+    "region": "Europe & Central Asia",
+    "income_level": "High income"
+   },
+   "normalized": {
+    "name": "María de la Cruz",
+    "email": "maria@telefonica.com",
+    "country": "ES",
+    "phone": "+34600112233"
+   },
+   "notified": true,
+   "idempotency_key": "sample-19a1e7-lead-es",
+   "trace": [
+    "webhook",
+    "validate",
+    "normalise",
+    "dedupe:new",
+    "enrich:mx",
+    "enrich:country",
+    "score",
+    "persist",
+    "route:hot",
+    "notify",
+    "respond"
+   ]
+  }
+ },
+ "lead-invalid": {
+  "status": 422,
+  "response": {
+   "ok": false,
+   "error": "validation_failed",
+   "errors": [
+    {
+     "field": "email",
+     "code": "invalid_format"
+    }
+   ],
+   "trace": [
+    "webhook",
+    "validate:rejected"
+   ]
+  }
+ },
+ "lead-dup": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": true,
+   "decision": {
+    "tier": "hot",
+    "score": 85,
+    "route": "already_processed"
+   },
+   "reasons": [
+    {
+     "rule": "domain_accepts_mail",
+     "points": 20
+    },
+    {
+     "rule": "business_domain",
+     "points": 20
+    },
+    {
+     "rule": "company_given",
+     "points": 10
+    },
+    {
+     "rule": "full_name",
+     "points": 5
+    }
+   ],
+   "idempotency_key": "sample-19a1e7-lead-dup",
+   "first_seen_at": "2026-10-13T22:41:50.879Z",
+   "trace": [
+    "webhook",
+    "validate",
+    "normalise",
+    "dedupe:duplicate",
+    "respond"
+   ]
+  }
+ },
+ "tri-billing": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "ticket": {
+    "category": "billing",
+    "urgency": "high",
+    "priority": "P1",
+    "queue": "finance-queue",
+    "summary": "SUBJECT: Double charge\nMESSAGE: I was charged twice for my invoice this month, please fix it.",
+    "draft_reply": "Thanks for contacting us about your billing request. We are on it and will reply shortly.",
+    "classifier": "llm",
+    "fallback_reason": null
+   },
+   "notified": true,
+   "idempotency_key": "sample-19a1e7-tri-billing",
+   "trace": [
+    "webhook",
+    "validate",
+    "dedupe:new",
+    "llm:ok",
+    "route:billing",
+    "persist",
+    "notify",
+    "respond"
+   ]
+  }
+ },
+ "tri-outage": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "ticket": {
+    "category": "technical",
+    "urgency": "critical",
+    "priority": "P1",
+    "queue": "engineering-queue",
+    "summary": "SUBJECT: URGENT\nMESSAGE: Our production is down, we have a total outage and customers cannot log in.",
+    "draft_reply": "Thanks for contacting us about your technical request. We are on it and will reply shortly.",
+    "classifier": "llm",
+    "fallback_reason": null
+   },
+   "notified": true,
+   "idempotency_key": "sample-19a1e7-tri-outage",
+   "trace": [
+    "webhook",
+    "validate",
+    "dedupe:new",
+    "llm:ok",
+    "route:technical",
+    "persist",
+    "notify",
+    "respond"
+   ]
+  }
+ },
+ "tri-sales": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "ticket": {
+    "category": "sales",
+    "urgency": "medium",
+    "priority": "P2",
+    "queue": "sales-queue",
+    "summary": "SUBJECT: Pricing\nMESSAGE: Can we get a demo and enterprise pricing for 200 users?",
+    "draft_reply": "Thanks for contacting us about your sales request. We are on it and will reply shortly.",
+    "classifier": "llm",
+    "fallback_reason": null
+   },
+   "notified": true,
+   "idempotency_key": "sample-19a1e7-tri-sales",
+   "trace": [
+    "webhook",
+    "validate",
+    "dedupe:new",
+    "llm:ok",
+    "route:sales",
+    "persist",
+    "notify",
+    "respond"
+   ]
+  }
+ },
+ "tri-fallback": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "ticket": {
+    "category": "billing",
+    "urgency": "high",
+    "priority": "P1",
+    "queue": "finance-queue",
+    "summary": "Refund",
+    "draft_reply": "Thanks for reaching out about billing. We have logged your request and a billing specialist will review your account and reply with the next steps.",
+    "classifier": "fallback",
+    "fallback_reason": "simulated_llm_outage"
+   },
+   "notified": true,
+   "idempotency_key": "sample-19a1e7-tri-fallback",
+   "trace": [
+    "webhook",
+    "validate",
+    "dedupe:new",
+    "llm:failed",
+    "fallback:keywords",
+    "route:billing",
+    "persist",
+    "notify",
+    "respond"
+   ]
+  }
+ },
+ "tri-es": {
+  "status": 200,
+  "response": {
+   "ok": true,
+   "duplicate": false,
+   "ticket": {
+    "category": "other",
+    "urgency": "medium",
+    "priority": "P2",
+    "queue": "general-queue",
+    "summary": "SUBJECT: Pedido\nMESSAGE: Mi pedido no ha llegado y el seguimiento no se actualiza desde hace una sem",
+    "draft_reply": "Thanks for contacting us about your other request. We are on it and will reply shortly.",
+    "classifier": "llm",
+    "fallback_reason": null
+   },
+   "notified": null,
+   "idempotency_key": "sample-19a1e7-tri-es",
+   "trace": [
+    "webhook",
+    "validate",
+    "dedupe:new",
+    "llm:ok",
+    "route:other",
+    "persist",
+    "respond"
+   ]
+  }
+ },
+ "tri-invalid": {
+  "status": 422,
+  "response": {
+   "ok": false,
+   "error": "validation_failed",
+   "errors": [
+    {
+     "field": "message",
+     "code": "too_short",
+     "detail": "min 5"
+    }
+   ],
+   "trace": [
+    "webhook",
+    "validate:rejected"
+   ]
+  }
+ }
+}

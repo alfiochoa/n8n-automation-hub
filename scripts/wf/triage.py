@@ -17,12 +17,13 @@ if (!isObj) errors.push({ field: 'body', code: 'not_an_object' });
 const body = isObj ? b : {};
 const size = JSON.stringify(body).length;
 if (size > MAX) errors.push({ field: 'body', code: 'payload_too_large', detail: `${size} > ${MAX} bytes` });
-const unknown = Object.keys(body).filter(k => !['message', 'subject', 'email', 'idempotency_key'].includes(k));
+const unknown = Object.keys(body).filter(k => !['message', 'subject', 'email', 'idempotency_key', 'simulate_llm_outage'].includes(k));
 if (unknown.length) errors.push({ field: unknown.join(','), code: 'unknown_fields' });
 const s = (k, max) => { const v = body[k]; if (v === undefined || v === null || v === '') return '';
   if (typeof v !== 'string') { errors.push({ field: k, code: 'must_be_string' }); return ''; }
   if (v.length > max) { errors.push({ field: k, code: 'too_long', detail: `max ${max}` }); return ''; }
   return v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ').trim(); };
+if (body.simulate_llm_outage !== undefined && typeof body.simulate_llm_outage !== 'boolean') errors.push({ field: 'simulate_llm_outage', code: 'must_be_boolean' });
 const message = s('message', 2000), subject = s('subject', 150), email = s('email', 254).toLowerCase();
 if (!message) { if (!errors.some(e => e.field === 'message')) errors.push({ field: 'message', code: 'required' }); }
 else if (message.length < 5) errors.push({ field: 'message', code: 'too_short', detail: 'min 5' });
@@ -30,7 +31,7 @@ if (email && !/^[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$/i.test(e
 const crypto = require('crypto');
 const key = String(headers['idempotency-key'] || body.idempotency_key || '').slice(0, 120)
   || 'ticket:' + crypto.createHash('sha256').update((subject + '\n' + message).toLowerCase()).digest('hex').slice(0, 32);
-const out = { valid: errors.length === 0, key, message, subject, email, chaos: String(headers['x-hub-chaos'] || '') };
+const out = { valid: errors.length === 0, key, message, subject, email, simulate: body.simulate_llm_outage === true, chaos: String(headers['x-hub-chaos'] || '') };
 if (!out.valid) { out.status = errors.some(e => e.code === 'payload_too_large') ? 413 : 422;
   out.response = { ok: false, error: 'validation_failed', errors, trace: ['webhook', 'validate:rejected'] }; }
 return [{ json: out }];
@@ -49,6 +50,7 @@ const r = $input.first().json.existing;
 return [{ json: { status: 200, response: { ok: true, duplicate: true, ticket: { category: r.category, urgency: r.urgency, draft_reply: r.draft_reply, classifier: r.classifier },
   idempotency_key: r.idempotency_key, first_seen_at: r.created_at, trace: ['webhook', 'validate', 'dedupe:duplicate', 'respond'] } } }];
 """, (6 * X, Y - 240))
+    sim = if_(wf, "Simulated LLM outage? (demo switch)", "={{ $json.simulate }}", (7 * X, Y - 40))
     llm = http(wf, "LLM classify + draft (Groq, OpenAI-compatible)",
                "={{ ($env.LLM_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\\/$/, '') }}/chat/completions",
                (6 * X, Y - 40), method="POST", timeout="={{ Number($env.HUB_LLM_TIMEOUT_MS || 15000) }}",
@@ -79,7 +81,7 @@ return [{ json: { llm_ok: true, category: o.category, urgency: o.urgency, summar
     llmok = if_(wf, "LLM output valid?", "={{ $json.llm_ok }}", (8 * X, Y - 40))
     fb = code(wf, "Fallback: keyword classifier", r"""
 // Deterministic safety net so a ticket is ALWAYS routed, even with the LLM down, slow or hallucinating.
-const v = $('Validate payload').first().json, why = $input.first().json.fallback_reason || 'llm_unavailable';
+const v = $('Validate payload').first().json, why = $input.first().json.fallback_reason || (v.simulate ? 'simulated_llm_outage' : 'llm_unavailable');
 const t = (v.subject + ' ' + v.message).toLowerCase();
 const rules = [
   ['billing',  /(invoice|refund|charge[ds]?|payment|billing|subscription|card|factura|cobro|reembolso|pago)/],
@@ -159,7 +161,8 @@ return [{ json: { status: 202, response: { ok: true, accepted: true,
     wf.chain(hook, val, ok)
     wf.link(ok, dd, 0); wf.link(ok, rej, 1)
     wf.chain(dd, ddr, seen)
-    wf.link(seen, dup, 0); wf.link(seen, llm, 1); wf.link(dup, resp)
+    wf.link(seen, dup, 0); wf.link(seen, sim, 1); wf.link(dup, resp)
+    wf.link(sim, fb, 0); wf.link(sim, llm, 1)
     wf.chain(llm, parse, llmok)
     wf.link(llmok, asm, 0); wf.link(llmok, fb, 1); wf.link(fb, asm)
     wf.chain(asm, prep)

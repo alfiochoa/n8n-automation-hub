@@ -37,7 +37,48 @@ class WF:
         return self.add(f"Note: {title}", "n8n-nodes-base.stickyNote",
                         {"content": text, "height": size[1], "width": size[0], "color": color}, pos, 1)
 
+    def layout(self, dx=230, dy=150):
+        """Left-to-right auto layout: x = longest-path depth, y = lanes (first child keeps the row, siblings fan out)."""
+        names = [n["name"] for n in self.nodes if n["type"] != "n8n-nodes-base.stickyNote"]
+        kids = {n: [t["node"] for outs in self.conns.get(n, {"main": []})["main"] for t in outs] for n in names}
+        indeg = {n: 0 for n in names}
+        for n in names:
+            for k in kids[n]:
+                indeg[k] += 1
+        roots = [n for n in names if indeg[n] == 0]
+        depth, order = {}, []
+        def visit(n, d, seen):
+            if n in seen:
+                return                                   # loop-back edge (Split In Batches): ignore for layout
+            if depth.get(n, -1) >= d:
+                return
+            depth[n] = d
+            for k in kids[n]:
+                visit(k, d + 1, seen | {n})
+        for r in roots:
+            visit(r, 0, frozenset())
+        pos, taken = {}, set()
+        def place(n, y):
+            while (depth[n], y) in taken:
+                y += 1
+            taken.add((depth[n], y)); pos[n] = (depth[n], y)
+            first = True
+            for k in kids[n]:
+                if k in pos or k not in depth or depth[k] <= depth[n]:
+                    continue
+                place(k, y if first else y + 1); first = False
+        for i, r in enumerate(roots):
+            place(r, i * 2 + 1)
+        for nd in self.nodes:
+            if nd["name"] in pos:
+                x, y = pos[nd["name"]]; nd["position"] = [x * dx, y * dy]
+        ys = [p[1] for p in pos.values()] or [0]; xs = [p[0] for p in pos.values()] or [0]
+        notes = [n for n in self.nodes if n["type"] == "n8n-nodes-base.stickyNote"]
+        for i, nd in enumerate(notes):
+            nd["position"] = [0 if i == 0 else max(xs) * dx // 2, (min(ys) * dy - 60 - nd["parameters"]["height"]) if i == 0 else (max(ys) * dy + 230)]
+
     def json(self):
+        self.layout()
         return {"id": self.id, "name": self.name, "active": self.active, "nodes": self.nodes,
                 "connections": self.conns,
                 "settings": {"executionOrder": "v1", "saveDataErrorExecution": "all",

@@ -142,7 +142,7 @@ def check_repo_leaks(errs):
         rel = os.path.relpath(p, ROOT)
         if rel.startswith(("secrets/", "n8n-runtime/")) or os.path.splitext(p)[1].lower() in (".png", ".jpg", ".mp4", ".mp3", ".woff2", ".ico", ".pdf"):
             continue
-        if os.path.basename(rel) in ("ci_checks.py",):
+        if os.path.basename(rel) in ("ci_checks.py", "test_static.py", "history_scan.sh"):
             continue                                                  # contains the patterns themselves
         try:
             text = open(p, encoding="utf-8").read()

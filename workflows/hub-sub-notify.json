@@ -13,7 +13,7 @@
       "typeVersion": 1.1,
       "position": [
         0,
-        200
+        150
       ]
     },
     {
@@ -25,8 +25,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        260,
-        200
+        230,
+        150
       ]
     },
     {
@@ -59,8 +59,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        500,
-        200
+        460,
+        150
       ]
     },
     {
@@ -88,8 +88,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        760,
-        120
+        690,
+        150
       ],
       "onError": "continueRegularOutput",
       "retryOnFail": true,
@@ -105,8 +105,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1020,
-        120
+        920,
+        150
       ]
     },
     {
@@ -118,7 +118,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        760,
+        690,
         300
       ]
     },
@@ -134,8 +134,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -20,
-        -60
+        0,
+        -110
       ]
     }
   ],

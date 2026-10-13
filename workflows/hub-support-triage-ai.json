@@ -18,21 +18,21 @@
       "typeVersion": 2.1,
       "position": [
         0,
-        320
+        150
       ],
       "webhookId": "f24e86f3-507b-574e-a1d3-b5c1dc198b68"
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json, headers = item.headers || {}, b = item.body;\nconst errors = [], MAX = 6000;\nconst isObj = b && typeof b === 'object' && !Array.isArray(b);\nif (!isObj) errors.push({ field: 'body', code: 'not_an_object' });\nconst body = isObj ? b : {};\nconst size = JSON.stringify(body).length;\nif (size > MAX) errors.push({ field: 'body', code: 'payload_too_large', detail: `${size} > ${MAX} bytes` });\nconst unknown = Object.keys(body).filter(k => !['message', 'subject', 'email', 'idempotency_key'].includes(k));\nif (unknown.length) errors.push({ field: unknown.join(','), code: 'unknown_fields' });\nconst s = (k, max) => { const v = body[k]; if (v === undefined || v === null || v === '') return '';\n  if (typeof v !== 'string') { errors.push({ field: k, code: 'must_be_string' }); return ''; }\n  if (v.length > max) { errors.push({ field: k, code: 'too_long', detail: `max ${max}` }); return ''; }\n  return v.replace(/[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]/g, ' ').trim(); };\nconst message = s('message', 2000), subject = s('subject', 150), email = s('email', 254).toLowerCase();\nif (!message) { if (!errors.some(e => e.field === 'message')) errors.push({ field: 'message', code: 'required' }); }\nelse if (message.length < 5) errors.push({ field: 'message', code: 'too_short', detail: 'min 5' });\nif (email && !/^[a-z0-9._%+\\-]+@[a-z0-9\\-]+(\\.[a-z0-9\\-]+)*\\.[a-z]{2,}$/i.test(email)) errors.push({ field: 'email', code: 'invalid_format' });\nconst crypto = require('crypto');\nconst key = String(headers['idempotency-key'] || body.idempotency_key || '').slice(0, 120)\n  || 'ticket:' + crypto.createHash('sha256').update((subject + '\\n' + message).toLowerCase()).digest('hex').slice(0, 32);\nconst out = { valid: errors.length === 0, key, message, subject, email, chaos: String(headers['x-hub-chaos'] || '') };\nif (!out.valid) { out.status = errors.some(e => e.code === 'payload_too_large') ? 413 : 422;\n  out.response = { ok: false, error: 'validation_failed', errors, trace: ['webhook', 'validate:rejected'] }; }\nreturn [{ json: out }];"
+        "jsCode": "const item = $input.first().json, headers = item.headers || {}, b = item.body;\nconst errors = [], MAX = 6000;\nconst isObj = b && typeof b === 'object' && !Array.isArray(b);\nif (!isObj) errors.push({ field: 'body', code: 'not_an_object' });\nconst body = isObj ? b : {};\nconst size = JSON.stringify(body).length;\nif (size > MAX) errors.push({ field: 'body', code: 'payload_too_large', detail: `${size} > ${MAX} bytes` });\nconst unknown = Object.keys(body).filter(k => !['message', 'subject', 'email', 'idempotency_key', 'simulate_llm_outage'].includes(k));\nif (unknown.length) errors.push({ field: unknown.join(','), code: 'unknown_fields' });\nconst s = (k, max) => { const v = body[k]; if (v === undefined || v === null || v === '') return '';\n  if (typeof v !== 'string') { errors.push({ field: k, code: 'must_be_string' }); return ''; }\n  if (v.length > max) { errors.push({ field: k, code: 'too_long', detail: `max ${max}` }); return ''; }\n  return v.replace(/[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]/g, ' ').trim(); };\nif (body.simulate_llm_outage !== undefined && typeof body.simulate_llm_outage !== 'boolean') errors.push({ field: 'simulate_llm_outage', code: 'must_be_boolean' });\nconst message = s('message', 2000), subject = s('subject', 150), email = s('email', 254).toLowerCase();\nif (!message) { if (!errors.some(e => e.field === 'message')) errors.push({ field: 'message', code: 'required' }); }\nelse if (message.length < 5) errors.push({ field: 'message', code: 'too_short', detail: 'min 5' });\nif (email && !/^[a-z0-9._%+\\-]+@[a-z0-9\\-]+(\\.[a-z0-9\\-]+)*\\.[a-z]{2,}$/i.test(email)) errors.push({ field: 'email', code: 'invalid_format' });\nconst crypto = require('crypto');\nconst key = String(headers['idempotency-key'] || body.idempotency_key || '').slice(0, 120)\n  || 'ticket:' + crypto.createHash('sha256').update((subject + '\\n' + message).toLowerCase()).digest('hex').slice(0, 32);\nconst out = { valid: errors.length === 0, key, message, subject, email, simulate: body.simulate_llm_outage === true, chaos: String(headers['x-hub-chaos'] || '') };\nif (!out.valid) { out.status = errors.some(e => e.code === 'payload_too_large') ? 413 : 422;\n  out.response = { ok: false, error: 'validation_failed', errors, trace: ['webhook', 'validate:rejected'] }; }\nreturn [{ json: out }];"
       },
       "id": "e55f914e-b60f-5ff4-a5f7-0a1fe9e7f402",
       "name": "Validate payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        240,
-        320
+        230,
+        150
       ]
     },
     {
@@ -65,8 +65,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        480,
-        320
+        460,
+        150
       ]
     },
     {
@@ -82,8 +82,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        720,
-        580
+        690,
+        300
       ]
     },
     {
@@ -99,8 +99,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        720,
-        280
+        690,
+        150
       ],
       "credentials": {
         "postgres": {
@@ -122,8 +122,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        960,
-        280
+        920,
+        150
       ]
     },
     {
@@ -156,8 +156,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1200,
-        280
+        1150,
+        150
       ]
     },
     {
@@ -169,8 +169,42 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1440,
-        80
+        1380,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "49c6a2d8-fdc5-504a-ab29-8dba3f7bd995",
+              "leftValue": "={{ $json.simulate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "49c6a2d8-fdc5-504a-ab29-8dba3f7bd995",
+      "name": "Simulated LLM outage? (demo switch)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1380,
+        300
       ]
     },
     {
@@ -191,8 +225,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        1440,
-        280
+        1610,
+        450
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -214,8 +248,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
-        280
+        1840,
+        450
       ]
     },
     {
@@ -248,21 +282,21 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1920,
-        280
+        2070,
+        450
       ]
     },
     {
       "parameters": {
-        "jsCode": "// Deterministic safety net so a ticket is ALWAYS routed, even with the LLM down, slow or hallucinating.\nconst v = $('Validate payload').first().json, why = $input.first().json.fallback_reason || 'llm_unavailable';\nconst t = (v.subject + ' ' + v.message).toLowerCase();\nconst rules = [\n  ['billing',  /(invoice|refund|charge[ds]?|payment|billing|subscription|card|factura|cobro|reembolso|pago)/],\n  ['technical',/(error|bug|crash|not working|doesn'?t work|broken|down|outage|timeout|error 500|500 error|internal server error|fallo|no funciona|caído)/],\n  ['account',  /(password|log ?in|sign ?in|2fa|locked|account|email change|contraseña|cuenta|acceso)/],\n  ['shipping', /(delivery|shipping|tracking|parcel|package|arrive|order status|envío|pedido|entrega)/],\n  ['sales',    /(pricing|quote|demo|enterprise|plan|upgrade|buy|trial|presupuesto|precio|contratar)/],\n];\nconst category = (rules.find(([, re]) => re.test(t)) || ['other'])[0];\nconst urgency = /(outage|data loss|breach|hacked|fraud|production down|cannot access anything|urgent|asap|immediately|urgente|caído)/.test(t) ? 'critical'\n  : /(not working|broken|error|failed|charged twice|locked out|blocked|no funciona|bloquead)/.test(t) ? 'high'\n  : /(question|how do i|how to|thanks|thank you|pregunta|gracias)/.test(t) ? 'low' : 'medium';\nconst draft = {\n  billing: 'Thanks for reaching out about billing. We have logged your request and a billing specialist will review your account and reply with the next steps.',\n  technical: 'Thanks for the report. We have logged the technical issue and an engineer will investigate and get back to you. Any error text or screenshots would help.',\n  account: 'Thanks for contacting us about your account. For your security we will verify your identity before making changes, and a specialist will follow up shortly.',\n  shipping: 'Thanks for your message about your order. We have asked the logistics team to check the status and will update you as soon as we have details.',\n  sales: 'Thanks for your interest! A member of our team will contact you shortly with the information you asked for.',\n  other: 'Thanks for your message. We have registered it and the right team will get back to you soon.' }[category];\nreturn [{ json: { llm_ok: false, category, urgency, summary: (v.subject || v.message).slice(0, 140), draft_reply: draft, classifier: 'fallback', fallback_reason: why } }];"
+        "jsCode": "// Deterministic safety net so a ticket is ALWAYS routed, even with the LLM down, slow or hallucinating.\nconst v = $('Validate payload').first().json, why = $input.first().json.fallback_reason || (v.simulate ? 'simulated_llm_outage' : 'llm_unavailable');\nconst t = (v.subject + ' ' + v.message).toLowerCase();\nconst rules = [\n  ['billing',  /(invoice|refund|charge[ds]?|payment|billing|subscription|card|factura|cobro|reembolso|pago)/],\n  ['technical',/(error|bug|crash|not working|doesn'?t work|broken|down|outage|timeout|error 500|500 error|internal server error|fallo|no funciona|caído)/],\n  ['account',  /(password|log ?in|sign ?in|2fa|locked|account|email change|contraseña|cuenta|acceso)/],\n  ['shipping', /(delivery|shipping|tracking|parcel|package|arrive|order status|envío|pedido|entrega)/],\n  ['sales',    /(pricing|quote|demo|enterprise|plan|upgrade|buy|trial|presupuesto|precio|contratar)/],\n];\nconst category = (rules.find(([, re]) => re.test(t)) || ['other'])[0];\nconst urgency = /(outage|data loss|breach|hacked|fraud|production down|cannot access anything|urgent|asap|immediately|urgente|caído)/.test(t) ? 'critical'\n  : /(not working|broken|error|failed|charged twice|locked out|blocked|no funciona|bloquead)/.test(t) ? 'high'\n  : /(question|how do i|how to|thanks|thank you|pregunta|gracias)/.test(t) ? 'low' : 'medium';\nconst draft = {\n  billing: 'Thanks for reaching out about billing. We have logged your request and a billing specialist will review your account and reply with the next steps.',\n  technical: 'Thanks for the report. We have logged the technical issue and an engineer will investigate and get back to you. Any error text or screenshots would help.',\n  account: 'Thanks for contacting us about your account. For your security we will verify your identity before making changes, and a specialist will follow up shortly.',\n  shipping: 'Thanks for your message about your order. We have asked the logistics team to check the status and will update you as soon as we have details.',\n  sales: 'Thanks for your interest! A member of our team will contact you shortly with the information you asked for.',\n  other: 'Thanks for your message. We have registered it and the right team will get back to you soon.' }[category];\nreturn [{ json: { llm_ok: false, category, urgency, summary: (v.subject || v.message).slice(0, 140), draft_reply: draft, classifier: 'fallback', fallback_reason: why } }];"
       },
       "id": "4f1fbb08-c009-502d-b549-bdb519921a70",
       "name": "Fallback: keyword classifier",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2160,
-        440
+        2300,
+        300
       ]
     },
     {
@@ -274,8 +308,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2400,
-        280
+        2530,
+        300
       ]
     },
     {
@@ -287,8 +321,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2640,
-        280
+        2760,
+        300
       ],
       "onError": "continueErrorOutput"
     },
@@ -305,8 +339,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2880,
-        280
+        2990,
+        300
       ],
       "credentials": {
         "postgres": {
@@ -329,8 +363,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2880,
-        280
+        3220,
+        300
       ]
     },
     {
@@ -363,8 +397,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3120,
-        280
+        3450,
+        300
       ]
     },
     {
@@ -376,8 +410,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
-        160
+        3680,
+        300
       ]
     },
     {
@@ -397,8 +431,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        3600,
-        160
+        3910,
+        300
       ],
       "onError": "continueRegularOutput"
     },
@@ -411,8 +445,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3840,
-        280
+        4140,
+        300
       ]
     },
     {
@@ -424,8 +458,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3120,
-        620
+        3220,
+        450
       ]
     },
     {
@@ -441,8 +475,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3360,
-        620
+        3450,
+        450
       ],
       "credentials": {
         "postgres": {
@@ -463,8 +497,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
-        620
+        3680,
+        450
       ]
     },
     {
@@ -480,8 +514,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        4080,
-        280
+        4370,
+        150
       ]
     },
     {
@@ -496,8 +530,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -20,
-        -150
+        0,
+        -230
       ]
     },
     {
@@ -512,8 +546,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1400,
-        560
+        2185,
+        680
       ]
     }
   ],
@@ -591,7 +625,7 @@
         ],
         [
           {
-            "node": "LLM classify + draft (Groq, OpenAI-compatible)",
+            "node": "Simulated LLM outage? (demo switch)",
             "type": "main",
             "index": 0
           }
@@ -603,6 +637,24 @@
         [
           {
             "node": "Respond: triage result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulated LLM outage? (demo switch)": {
+      "main": [
+        [
+          {
+            "node": "Fallback: keyword classifier",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM classify + draft (Groq, OpenAI-compatible)",
             "type": "main",
             "index": 0
           }

@@ -1,0 +1,15 @@
+[
+  {"id":"lead-hot","flow":"lead","label":"Hot B2B lead","hint":"business domain, budget + urgency","body":{"email":"cto@stripe.com","name":"jane doe","company":"Stripe","country":"USA","phone":"+1 415 555 0100","message":"We need pricing for 50 seats, budget approved, this week."}},
+  {"id":"lead-warm","flow":"lead","label":"Warm lead","hint":"free mailbox, name only","body":{"email":"john.smith@gmail.com","name":"john smith","country":"UK"}},
+  {"id":"lead-cold","flow":"lead","label":"Cold: disposable e-mail","hint":"throw-away domain","body":{"email":"x1@mailinator.com"}},
+  {"id":"lead-spam","flow":"lead","label":"Spam pitch","hint":"SEO / backlinks keywords","body":{"email":"seo.team@gmail.com","message":"Cheap SEO backlinks and guest post offers!"}},
+  {"id":"lead-es","flow":"lead","label":"Spanish lead, messy data","hint":"normalises name, country, phone","body":{"email":"maria@telefonica.com","name":"maría DE LA cruz","country":"españa","phone":"600 11 22 33","company":"Telefónica"}},
+  {"id":"lead-invalid","flow":"lead","label":"Invalid e-mail","hint":"rejected with 422","body":{"email":"not-an-email","name":"Oops"}},
+  {"id":"lead-dup","flow":"lead","label":"Same lead twice","hint":"second send is deduplicated","repeat":true,"fixedKey":true,"body":{"email":"repeat@stripe.com","name":"Re Peat","company":"Stripe"}},
+  {"id":"tri-billing","flow":"triage","label":"Charged twice","hint":"billing, LLM classifies","body":{"subject":"Double charge","message":"I was charged twice for my invoice this month, please fix it."}},
+  {"id":"tri-outage","flow":"triage","label":"Production outage","hint":"critical, pages the team","body":{"subject":"URGENT","message":"Our production is down, we have a total outage and customers cannot log in."}},
+  {"id":"tri-sales","flow":"triage","label":"Sales question","hint":"routed to sales","body":{"subject":"Pricing","message":"Can we get a demo and enterprise pricing for 200 users?"}},
+  {"id":"tri-fallback","flow":"triage","label":"LLM is down (simulated)","hint":"keyword fallback still routes it","body":{"subject":"Refund","message":"I need a refund for a payment charged twice.","simulate_llm_outage":true}},
+  {"id":"tri-es","flow":"triage","label":"Message in Spanish","hint":"multilingual draft reply","body":{"subject":"Pedido","message":"Mi pedido no ha llegado y el seguimiento no se actualiza desde hace una semana."}},
+  {"id":"tri-invalid","flow":"triage","label":"Too short","hint":"rejected with 422","body":{"message":"hi"}}
+]

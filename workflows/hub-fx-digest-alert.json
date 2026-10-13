@@ -20,7 +20,7 @@
       "typeVersion": 1.2,
       "position": [
         0,
-        140
+        150
       ]
     },
     {
@@ -31,7 +31,7 @@
       "typeVersion": 1,
       "position": [
         0,
-        320
+        450
       ]
     },
     {
@@ -43,8 +43,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        250,
-        260
+        230,
+        150
       ]
     },
     {
@@ -73,8 +73,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        500,
-        170
+        460,
+        150
       ],
       "retryOnFail": true,
       "maxTries": 2,
@@ -89,8 +89,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        750,
-        170
+        690,
+        150
       ]
     },
     {
@@ -119,8 +119,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        1000,
-        170
+        920,
+        150
       ],
       "retryOnFail": true,
       "maxTries": 2,
@@ -135,8 +135,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1250,
-        170
+        1150,
+        150
       ]
     },
     {
@@ -148,8 +148,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1500,
-        170
+        1380,
+        150
       ]
     },
     {
@@ -169,8 +169,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        1750,
-        170
+        1610,
+        150
       ],
       "onError": "continueRegularOutput"
     },
@@ -183,8 +183,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2000,
-        170
+        1840,
+        150
       ]
     },
     {
@@ -199,8 +199,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -20,
-        -160
+        0,
+        -170
       ]
     }
   ],
