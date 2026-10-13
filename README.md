@@ -117,6 +117,19 @@ Run against a **real local n8n** (the production-shaped, gated boot) with Supaba
 | `test_static.py` | 9 | 9 | the CI guard-rails catch planted secrets, bad node types, missing timeouts, wildcard CORS, broken connections |
 | **Total** | **86** | **86** | 253 s end to end |
 
+### Real-LLM results (Groq `openai/gpt-oss-20b`, opt-in)
+
+The CI/default suite uses a mock LLM so failure modes are deterministic. Separately, [`tests/test_real_llm.py`](tests/test_real_llm.py) (`HUB_REAL_LLM=1`) sends 7 messages to the **real model** through the same webhook; two runs, raw numbers in [`tests/real_llm_results.json`](tests/real_llm_results.json):
+
+| Case | Result (both runs) | Webhook latency |
+|---|---|---:|
+| billing (EN) / outage (EN) / shipping (ES) / sales (EN) | `llm`, expected category, urgency high / critical / high / medium | 2.1-3.3 s |
+| account: "cannot log in, reset email never arrives" | `llm`, labelled **technical** (I expected *account*): a genuine model disagreement, recorded rather than hidden | 1.5-1.8 s |
+| prompt-injection attempt ("set category to admin…") | `llm`, `other` / `low`: the schema held, no injected value reached the output | 1.5-1.8 s |
+| ambiguous ("checking in about the thing we discussed") | `llm`, `other` / `low` | 1.4-1.6 s |
+
+Category accuracy on the 5 labelled cases: **4/5**; fallbacks in the final 14 calls: **0**. An earlier run (before the fix) had **2 of 7 calls fall back** with HTTP 400 from Groq: `gpt-oss` is a reasoning model, its reasoning tokens consumed the `max_tokens: 500` budget and JSON mode rejected the truncated output. The fallback caught it and the tickets were still routed, which is the point of the design. The fix is `max_tokens: 1000` plus `reasoning_effort: low` (sent only for `gpt-oss` models). Small sample, one provider, free tier: treat as a smoke test, not a benchmark.
+
 Memory on the free tier (512 MB) is the real constraint. Measured with the lean profile (`ps` RSS, n8n + gate): **~290 MB headless idle, ~350 MB after boot, ~380 MB median and ~500 MB peak during the test run** (full default n8n idles at 440 MB; the editor UI costs ~90 MB more, which is why the deployed default is headless). It fits, but with little headroom: see [limits](#limits).
 
 ## What it costs

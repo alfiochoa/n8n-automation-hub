@@ -4,7 +4,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 set -a
-for f in db.env n8n.env owner.env llm.env; do [ -f "$ROOT/secrets/$f" ] && . "$ROOT/secrets/$f"; done
+for f in db.env n8n.env owner.env llm.env ${HUB_LLM_PROFILE:+llm.$HUB_LLM_PROFILE.env}; do [ -f "$ROOT/secrets/$f" ] && . "$ROOT/secrets/$f"; done
 set +a
 export N8N_USER_FOLDER="$ROOT/n8n-runtime/data"
 mkdir -p "$N8N_USER_FOLDER"

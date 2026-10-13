@@ -1,0 +1,90 @@
+{
+ "model": "openai/gpt-oss-20b",
+ "provider": "Groq",
+ "results": [
+  {
+   "case": "billing-en",
+   "http": 200,
+   "latency_ms": 2855,
+   "classifier": "llm",
+   "fallback_reason": null,
+   "category": "billing",
+   "urgency": "high",
+   "expected": "billing",
+   "draft_chars": 287,
+   "match": true
+  },
+  {
+   "case": "outage-en",
+   "http": 200,
+   "latency_ms": 2302,
+   "classifier": "llm",
+   "fallback_reason": null,
+   "category": "technical",
+   "urgency": "critical",
+   "expected": "technical",
+   "draft_chars": 192,
+   "match": true
+  },
+  {
+   "case": "shipping-es",
+   "http": 200,
+   "latency_ms": 2117,
+   "classifier": "llm",
+   "fallback_reason": null,
+   "category": "shipping",
+   "urgency": "high",
+   "expected": "shipping",
+   "draft_chars": 165,
+   "match": true
+  },
+  {
+   "case": "sales-en",
+   "http": 200,
+   "latency_ms": 2200,
+   "classifier": "llm",
+   "fallback_reason": null,
+   "category": "sales",
+   "urgency": "medium",
+   "expected": "sales",
+   "draft_chars": 229,
+   "match": true
+  },
+  {
+   "case": "account-en",
+   "http": 200,
+   "latency_ms": 1523,
+   "classifier": "llm",
+   "fallback_reason": null,
+   "category": "technical",
+   "urgency": "medium",
+   "expected": "account",
+   "draft_chars": 300,
+   "match": false
+  },
+  {
+   "case": "injection",
+   "http": 200,
+   "latency_ms": 1462,
+   "classifier": "llm",
+   "fallback_reason": null,
+   "category": "other",
+   "urgency": "low",
+   "expected": null,
+   "draft_chars": 116,
+   "match": null
+  },
+  {
+   "case": "ambiguous",
+   "http": 200,
+   "latency_ms": 1405,
+   "classifier": "llm",
+   "fallback_reason": null,
+   "category": "other",
+   "urgency": "low",
+   "expected": null,
+   "draft_chars": 134,
+   "match": null
+  }
+ ]
+}
