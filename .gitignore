@@ -1,0 +1,13 @@
+n8n-runtime/
+.env
+.env.*
+!.env.example
+secrets/
+*.local
+node_modules/
+__pycache__/
+.pytest_cache/
+artifacts/
+tmp/
+tests/.mocks.*
+tests/results.json
