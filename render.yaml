@@ -1,0 +1,45 @@
+# Render Blueprint: one FREE Docker web service (Frankfurt, closest region to Madrid).
+# Secrets are never stored here: "sync: false" means you (or scripts/render_deploy.py) provide them in the Render dashboard/API.
+services:
+  - type: web
+    name: n8n-automation-hub
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      # --- public URL (set after the first deploy to https://<service>.onrender.com/) ---
+      - key: WEBHOOK_URL
+        sync: false
+      - key: N8N_EDITOR_BASE_URL
+        sync: false
+      - key: N8N_HOST
+        sync: false
+      # --- secrets ---
+      - key: N8N_ENCRYPTION_KEY
+        sync: false
+      - key: N8N_OWNER_EMAIL
+        value: owner@n8n-hub.local
+      - key: N8N_OWNER_PASSWORD
+        sync: false
+      - key: DB_POSTGRESDB_HOST
+        sync: false
+      - key: DB_POSTGRESDB_USER
+        sync: false
+      - key: DB_POSTGRESDB_PASSWORD
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: HUB_NOTIFY_URL
+        sync: false
+      # --- non-secret config ---
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: openai/gpt-oss-20b
+      - key: HUB_LLM_TIMEOUT_MS
+        value: "15000"
+      - key: N8N_DISABLE_UI          # headless by default: saves ~90 MB RAM on the 512 MB free tier. Set "false" to use the editor.
+        value: "true"

@@ -1,0 +1,9 @@
+.git
+.github
+n8n-runtime
+secrets
+.env*
+docs
+tests
+node_modules
+*.md
