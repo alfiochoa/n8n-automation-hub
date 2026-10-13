@@ -9,9 +9,9 @@ TAG = {"id": "hubtag000000001", "name": "n8n-automation-hub"}
 
 
 class WF:
-    def __init__(self, wid, name, tags=(), error_wf=None, desc=""):
+    def __init__(self, wid, name, tags=(), error_wf=None, desc="", active=False):
         self.id, self.name, self.nodes, self.conns = wid, name, [], {}
-        self.tags, self.error_wf, self.desc = list(tags), error_wf, desc
+        self.tags, self.error_wf, self.desc, self.active = list(tags), error_wf, desc, active
 
     def add(self, name, type_, params=None, pos=(0, 0), ver=1, creds=None, **extra):
         n = {"parameters": params or {}, "id": str(uuid.uuid5(NS, self.id + name)), "name": name,
@@ -38,7 +38,7 @@ class WF:
                         {"content": text, "height": size[1], "width": size[0], "color": color}, pos, 1)
 
     def json(self):
-        return {"id": self.id, "name": self.name, "active": False, "nodes": self.nodes,
+        return {"id": self.id, "name": self.name, "active": self.active, "nodes": self.nodes,
                 "connections": self.conns,
                 "settings": {"executionOrder": "v1", "saveDataErrorExecution": "all",
                              "saveDataSuccessExecution": "all", "saveManualExecutions": True,

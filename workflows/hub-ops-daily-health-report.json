@@ -1,7 +1,7 @@
 {
   "id": "hubHealthReport1",
   "name": "hub-ops-daily-health-report",
-  "active": false,
+  "active": true,
   "nodes": [
     {
       "parameters": {

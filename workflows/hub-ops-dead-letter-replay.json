@@ -1,7 +1,7 @@
 {
   "id": "hubDlqReplay001",
   "name": "hub-ops-dead-letter-replay",
-  "active": false,
+  "active": true,
   "nodes": [
     {
       "parameters": {

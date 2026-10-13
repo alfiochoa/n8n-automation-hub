@@ -1,7 +1,7 @@
 {
   "id": "hubPriceScrape1",
   "name": "hub-price-scraper-alerts",
-  "active": false,
+  "active": true,
   "nodes": [
     {
       "parameters": {

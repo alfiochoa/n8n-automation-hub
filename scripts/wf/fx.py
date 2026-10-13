@@ -6,7 +6,7 @@ ERR_ID = "hubErrorHandle1"
 
 
 def fx_digest():
-    wf = WF(FX_ID, "hub-fx-digest-alert", [tag("fx"), tag("schedule")], error_wf=ERR_ID)
+    wf = WF(FX_ID, "hub-fx-digest-alert", [tag("fx"), tag("schedule")], error_wf=ERR_ID, active=True)
     X, Y = 250, 260
     sch = wf.add("Schedule: weekdays 08:00", "n8n-nodes-base.scheduleTrigger",
                  {"rule": {"interval": [{"field": "cronExpression", "expression": "0 8 * * 1-5"}]}}, (0, Y - 120), 1.2)

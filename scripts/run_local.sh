@@ -16,14 +16,16 @@ export N8N_DIAGNOSTICS_ENABLED=false N8N_PERSONALIZATION_ENABLED=false N8N_VERSI
 export N8N_SECURE_COOKIE=false            # local http only; production keeps this true
 export EXECUTIONS_DATA_PRUNE=true EXECUTIONS_DATA_MAX_AGE=72 EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
 export N8N_RUNNERS_ENABLED=false N8N_BLOCK_ENV_ACCESS_IN_NODE=false
-export NODE_OPTIONS="--max-old-space-size=384"
 export GENERIC_TIMEZONE=Europe/Madrid TZ=Europe/Madrid
 export N8N_PUBLIC_API_DISABLED=false NODE_FUNCTION_ALLOW_BUILTIN=crypto N8N_PAYLOAD_SIZE_MAX=1
 export HUB_ALLOWED_ORIGIN="${HUB_ALLOWED_ORIGIN:-*}"
 export HUB_NOTIFY_URL="${HUB_NOTIFY_URL:-http://localhost:${MOCK_PORT:-5699}/notify}"
 export HUB_SELF_URL="${HUB_SELF_URL:-http://localhost:$N8N_PORT}"
+# lean profile (same file the Docker image uses); HUB_LEAN=false for the full node palette
+if [ "${HUB_LEAN:-true}" = "true" ]; then set -a; . "$ROOT/config/lean.env"; set +a; else export NODE_OPTIONS="--max-old-space-size=512"; fi
 export N8N_BIN="$ROOT/n8n-runtime/node_modules/.bin/n8n"
 case "${1:-start}" in
   provision) exec "$ROOT/scripts/provision.sh" ;;
+  gated) exec sh "$ROOT/scripts/start.sh" ;;   # production-shaped boot: private n8n, owner claimed, then the public port opens
   *) exec "$N8N_BIN" "${@:-start}" ;;
 esac

@@ -1,7 +1,7 @@
 {
   "id": "hubFxDigest0001",
   "name": "hub-fx-digest-alert",
-  "active": false,
+  "active": true,
   "nodes": [
     {
       "parameters": {

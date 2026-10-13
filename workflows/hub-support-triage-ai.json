@@ -1,7 +1,7 @@
 {
   "id": "hubSupportTri01",
   "name": "hub-support-triage-ai",
-  "active": false,
+  "active": true,
   "nodes": [
     {
       "parameters": {

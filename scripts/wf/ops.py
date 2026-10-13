@@ -33,7 +33,7 @@ return [{ json: { workflow_id: w.id || null, workflow_name: w.name || null, exec
 
 
 def health():
-    wf = WF(HEALTH_ID, "hub-ops-daily-health-report", [tag("ops"), tag("schedule")], error_wf=ERR_ID)
+    wf = WF(HEALTH_ID, "hub-ops-daily-health-report", [tag("ops"), tag("schedule")], error_wf=ERR_ID, active=True)
     X, Y = 250, 220
     sch = wf.add("Schedule: daily 07:00", "n8n-nodes-base.scheduleTrigger",
                  {"rule": {"interval": [{"field": "cronExpression", "expression": "0 7 * * *"}]}}, (0, Y - 100), 1.2)
@@ -77,7 +77,7 @@ return [{ json: { date: new Date().toISOString().slice(0, 10), success: ok, fail
 
 
 def dlq():
-    wf = WF(DLQ_ID, "hub-ops-dead-letter-replay", [tag("ops"), tag("schedule")], error_wf=ERR_ID)
+    wf = WF(DLQ_ID, "hub-ops-dead-letter-replay", [tag("ops"), tag("schedule")], error_wf=ERR_ID, active=True)
     X, Y = 250, 220
     sch = wf.add("Schedule: every 15 min", "n8n-nodes-base.scheduleTrigger",
                  {"rule": {"interval": [{"field": "minutes", "minutesInterval": 15}]}}, (0, Y - 100), 1.2)

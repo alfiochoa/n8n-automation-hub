@@ -6,7 +6,7 @@ ERR_ID = "hubErrorHandle1"
 
 
 def lead_intake():
-    wf = WF(LEAD_ID, "hub-lead-intake", [tag("lead-intake"), tag("webhook")], error_wf=ERR_ID)
+    wf = WF(LEAD_ID, "hub-lead-intake", [tag("lead-intake"), tag("webhook")], error_wf=ERR_ID, active=True)
     X, Y = 240, 300
     hook = webhook(wf, "Webhook: lead", "demo-lead-intake", (0, Y))
     val = code(wf, "Validate payload", r"""

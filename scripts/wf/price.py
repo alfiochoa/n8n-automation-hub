@@ -7,7 +7,7 @@ UA = "n8n-automation-hub/1.0 (+https://github.com/alfiochoa/n8n-automation-hub; 
 
 
 def price_scraper():
-    wf = WF(PRICE_ID, "hub-price-scraper-alerts", [tag("scraper"), tag("schedule")], error_wf=ERR_ID)
+    wf = WF(PRICE_ID, "hub-price-scraper-alerts", [tag("scraper"), tag("schedule")], error_wf=ERR_ID, active=True)
     X, Y = 250, 300
     sch = wf.add("Schedule: every 6 hours", "n8n-nodes-base.scheduleTrigger",
                  {"rule": {"interval": [{"field": "hours", "hoursInterval": 6}]}}, (0, Y - 120), 1.2)

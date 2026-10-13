@@ -1,7 +1,7 @@
 {
   "id": "hubLeadIntake01",
   "name": "hub-lead-intake",
-  "active": false,
+  "active": true,
   "nodes": [
     {
       "parameters": {

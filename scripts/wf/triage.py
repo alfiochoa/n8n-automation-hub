@@ -6,7 +6,7 @@ ERR_ID = "hubErrorHandle1"
 
 
 def triage():
-    wf = WF(TRIAGE_ID, "hub-support-triage-ai", [tag("support-triage"), tag("llm"), tag("webhook")], error_wf=ERR_ID)
+    wf = WF(TRIAGE_ID, "hub-support-triage-ai", [tag("support-triage"), tag("llm"), tag("webhook")], error_wf=ERR_ID, active=True)
     X, Y = 240, 320
     hook = webhook(wf, "Webhook: support message", "demo-support-triage", (0, Y))
     val = code(wf, "Validate payload", r"""

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Local dev helper: dev.sh restart | stop | logs
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-stop() { pkill -f "[n]8n-runtime/node_modules/.bin/n8n" 2>/dev/null; pkill -f "[n]8n-runtime/node_modules/n8n/bin/n8n" 2>/dev/null; sleep 3; }
+stop() { pkill -f "[s]cripts/gate.js" 2>/dev/null; pkill -f "[n]8n-runtime/node_modules/.bin/n8n" 2>/dev/null; pkill -f "[n]8n-runtime/node_modules/n8n/bin/n8n" 2>/dev/null; sleep 3; }
 case "${1:-restart}" in
   stop) stop ;;
   logs) tail -f "$ROOT/n8n-runtime/n8n.log" ;;
