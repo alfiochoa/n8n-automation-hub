@@ -1,0 +1,61 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+env:
+  N8N_VERSION: "1.123.84"        # keep in sync with Dockerfile
+jobs:
+  static:
+    name: lint / leak scan / allowlist
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pytest
+      - name: workflow lint + secret/ID leak scan + node-type allowlist + hygiene
+        run: python scripts/ci_checks.py
+      - name: guard-rail self-tests (planted violations must be caught)
+        run: python -m pytest tests/test_static.py --noconftest -q
+      - name: generated workflows are in sync with the generator
+        run: |
+          python scripts/build_workflows.py >/dev/null
+          git diff --exit-code -- workflows || { echo "::error::workflows/ differs from scripts/build_workflows.py output - run it and commit"; exit 1; }
+      - name: Dockerfile pins the same n8n version as CI
+        run: grep -q "FROM n8nio/n8n:${N8N_VERSION}$" Dockerfile
+
+  headless-fx:
+    name: headless n8n - execute fx-digest-alert (real API, mocked notifier)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: cache pinned n8n
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: n8n-runtime
+          key: n8n-${{ env.N8N_VERSION }}-node24-${{ runner.os }}
+      - name: install pinned n8n
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p n8n-runtime && cd n8n-runtime && npm init -y >/dev/null
+          npm install "n8n@${N8N_VERSION}" --save-exact --no-audit --no-fund
+      - name: import workflows and execute fx-digest-alert through the CLI
+        run: scripts/ci_headless.sh
+      - name: upload execution log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fx-digest-execution-log
+          path: artifacts/
+          retention-days: 14

@@ -1,0 +1,31 @@
+name: keepalive
+# Render's free web services sleep after ~15 min without inbound traffic. This pings /healthz every 10 min so the demo stays warm.
+# GitHub cron is best-effort (runs can be delayed a few minutes); see README for the optional redundant pinger (cron-job.org).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: GET /healthz (retries, fails the run on error)
+        env:
+          BASE_URL: ${{ vars.N8N_BASE_URL }}
+        run: |
+          if [ -z "$BASE_URL" ]; then
+            echo "::notice::repo variable N8N_BASE_URL is not set (service not deployed yet) - nothing to ping"
+            exit 0
+          fi
+          URL="${BASE_URL%/}/healthz"
+          # A cold start of the free instance takes 30-90 s: allow up to 10 attempts, 15 s apart, 30 s per attempt.
+          curl --fail --silent --show-error --location \
+               --retry 10 --retry-delay 15 --retry-all-errors --retry-connrefused \
+               --max-time 30 --user-agent "n8n-automation-hub-keepalive" \
+               --write-out "healthz: HTTP %{http_code} in %{time_total}s\n" --output /dev/null "$URL"
