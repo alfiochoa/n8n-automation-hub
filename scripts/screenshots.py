@@ -6,7 +6,8 @@ from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE = os.environ.get("BASE", "http://localhost:5678")
-OUT = os.path.join(ROOT, "docs", "img")
+OUT = os.environ.get("OUT") or os.path.join(ROOT, "docs", "img")
+SCALE = float(os.environ.get("SCALE", "1"))
 env = dict(l.strip().split("=", 1) for l in open(os.path.join(ROOT, "secrets", "owner.env")) if "=" in l)
 WFS = {"hubLeadIntake01": "lead-intake", "hubSupportTri01": "support-triage-ai", "hubFxDigest0001": "fx-digest-alert",
        "hubPriceScrape1": "price-scraper-alerts", "hubErrorHandle1": "ops-error-handler", "hubHealthReport1": "ops-daily-health-report",
@@ -40,7 +41,7 @@ def main():
     only = set(sys.argv[1:])
     with sync_playwright() as p:
         b = p.chromium.launch()
-        ctx = b.new_context(device_scale_factor=1, viewport={"width": 3400, "height": 1200}, color_scheme="light")
+        ctx = b.new_context(device_scale_factor=SCALE, viewport={"width": 3400, "height": 1200}, color_scheme="light")
         login(ctx)
         page = ctx.new_page()
         for wid, name in WFS.items():

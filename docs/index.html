@@ -96,6 +96,8 @@ pre{background:var(--code);padding:12px;border-radius:10px;overflow:auto;font-si
 .sample-tag{font-size:12px;border-radius:6px;padding:2px 8px;background:var(--neutral-bg);color:var(--ink2);margin-left:8px;font-weight:600}
 footer{margin-top:28px;font-size:13px;color:var(--muted);display:grid;gap:6px}
 .sr{position:absolute;left:-9999px}
+body.compact .lead,body.compact .notice,body.compact footer{display:none}
+body.compact .wrap{max-width:1320px}body.compact{font-size:16px}body.compact h1{font-size:22px;margin:0 0 8px}body.compact .chips{margin-bottom:8px}body.compact .hint{margin:-2px 0 6px}body.compact .sub{margin:10px 0 6px}body.compact header{padding:10px 0}body.compact .card{padding:14px}body.compact textarea{min-height:150px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -150,6 +152,7 @@ footer{margin-top:28px;font-size:13px;color:var(--muted);display:grid;gap:6px}
 (() => {
   const $ = s => document.querySelector(s);
   const qs = new URLSearchParams(location.search);
+  if (qs.get('compact')) document.body.classList.add('compact');
   let API = (qs.get('api') || window.HUB_API || '').replace(/\/$/, '');
   if (API && !/^https:\/\//.test(API) && !/^http:\/\/(localhost|127\.0\.0\.1)/.test(API)) API = '';
   const PATH = { lead: 'demo-lead-intake', triage: 'demo-support-triage' };
