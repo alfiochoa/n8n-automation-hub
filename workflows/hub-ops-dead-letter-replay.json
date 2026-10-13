@@ -1,0 +1,287 @@
+{
+  "id": "hubDlqReplay001",
+  "name": "hub-ops-dead-letter-replay",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "322ed988-e6bb-5918-ba4f-ad7f74cce7e0",
+      "name": "Schedule: every 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "82d31c81-7fa5-5ea5-b326-50de65eefd8f",
+      "name": "Manual / headless trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update hub.dead_letters set attempts = attempts + 1 where id in (select id from hub.dead_letters where status = 'pending' and attempts < 5 order by id limit 20 for update skip locked) returning id, source, payload, attempts",
+        "options": {}
+      },
+      "id": "6fb5524f-643c-5f42-8799-64096f96de1c",
+      "name": "Claim pending dead letters (SKIP LOCKED)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        250,
+        220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = ($env.HUB_SELF_URL || `http://localhost:${$env.N8N_PORT || 5678}`).replace(/\\/$/, '');\nconst path = { 'lead-intake': '/webhook/demo-lead-intake', 'support-triage-ai': '/webhook/demo-support-triage' };\nreturn $input.all().map(i => { const r = i.json, p = r.payload || {};\n  return { json: { id: r.id, attempts: r.attempts, url: base + (path[r.source] || '/webhook/unknown'), key: p.idempotency_key, body: p } }; });"
+      },
+      "id": "5e2c2c3f-c7cc-56a2-bbf3-3236eb06e964",
+      "name": "Build replay request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
+      },
+      "id": "924d7f35-d435-509b-800d-3f18f74813b6",
+      "name": "Replay through the original webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        750,
+        220
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": false,
+      "maxTries": 2,
+      "waitBetweenTries": 1500
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $('Build replay request').all();\nreturn $input.all().map((i, k) => { const r = src[k].json, ok = !i.json.error && i.json.ok === true;\n  return { json: { id: r.id, status: ok ? 'replayed' : (r.attempts >= 5 ? 'dropped' : 'pending'), error: ok ? null : String(i.json.error?.message || i.json.message || 'replay failed').slice(0, 300) } }; });"
+      },
+      "id": "d7533b72-2533-5b1a-bec2-02b300167d77",
+      "name": "Classify outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update hub.dead_letters set status = $2, error = coalesce($3, error), replayed_at = case when $2 = 'replayed' then now() end where id = $1 returning id, status",
+        "options": {
+          "queryReplacement": "={{ [$json.id, $json.status, $json.error] }}"
+        }
+      },
+      "id": "ccfdaa97-5ac7-5c30-9fc8-307dc3359fb0",
+      "name": "Mark outcome",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1250,
+        220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = $input.all().map(i => i.json).filter(x => x.id);\nreturn [{ json: { processed: a.length, replayed: a.filter(x => x.status === 'replayed').length, still_pending: a.filter(x => x.status === 'pending').length, dropped: a.filter(x => x.status === 'dropped').length } }];"
+      },
+      "id": "d03e0373-33d9-5638-840f-0fe56fcdf417",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        220
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "content": "## Dead-letter replay\nLead and triage workflows park a request in `hub.dead_letters` when persistence fails (they still answer `202`).\n\n1. Claim up to 20 rows atomically (`FOR UPDATE SKIP LOCKED`, attempts + 1)\n2. Replay through the **original webhook** with the original `Idempotency-Key`\n3. 2xx -> `replayed`; else back to `pending`; after 5 attempts -> `dropped`\n\nIdempotency makes replays safe: a lead that was in fact stored is not duplicated.",
+        "height": 240,
+        "width": 560,
+        "color": 4
+      },
+      "id": "3165c79f-4be4-52d0-a16c-2f188e6bf002",
+      "name": "Note: hub-ops-dead-letter-replay",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -160
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule: every 15 min": {
+      "main": [
+        [
+          {
+            "node": "Claim pending dead letters (SKIP LOCKED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual / headless trigger": {
+      "main": [
+        [
+          {
+            "node": "Claim pending dead letters (SKIP LOCKED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim pending dead letters (SKIP LOCKED)": {
+      "main": [
+        [
+          {
+            "node": "Build replay request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build replay request": {
+      "main": [
+        [
+          {
+            "node": "Replay through the original webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replay through the original webhook": {
+      "main": [
+        [
+          {
+            "node": "Classify outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify outcome": {
+      "main": [
+        [
+          {
+            "node": "Mark outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark outcome": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 300,
+    "timezone": "Europe/Madrid",
+    "errorWorkflow": "hubErrorHandle1"
+  },
+  "tags": [
+    {
+      "id": "hubtag000000001",
+      "name": "n8n-automation-hub"
+    },
+    {
+      "id": "hubtag_ops",
+      "name": "ops"
+    },
+    {
+      "id": "hubtag_schedule",
+      "name": "schedule"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}

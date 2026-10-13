@@ -1,0 +1,1003 @@
+{
+  "id": "hubLeadIntake01",
+  "name": "hub-lead-intake",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "demo-lead-intake",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "https://alfiochoa.github.io,http://localhost:8080,http://127.0.0.1:8080"
+        }
+      },
+      "id": "bee3bf12-6085-57af-b9e0-196c47d1e89a",
+      "name": "Webhook: lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "d9f2e0ce-1d05-5475-a6df-4003cec7f099"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape, size and e-mail validation. Never trusts the caller.\nconst item = $input.first().json;\nconst body = item.body, headers = item.headers || {};\nconst MAX = 8000, errors = [];\nconst isObj = body && typeof body === 'object' && !Array.isArray(body);\nif (!isObj) errors.push({ field: 'body', code: 'not_an_object' });\nconst b = isObj ? body : {};\nconst size = JSON.stringify(b).length;\nif (size > MAX) errors.push({ field: 'body', code: 'payload_too_large', detail: `${size} > ${MAX} bytes` });\nconst allowed = ['email', 'name', 'company', 'country', 'phone', 'message', 'source', 'idempotency_key'];\nconst unknown = Object.keys(b).filter(k => !allowed.includes(k));\nif (unknown.length) errors.push({ field: unknown.join(','), code: 'unknown_fields' });\nconst str = (k, max) => {\n  const v = b[k];\n  if (v === undefined || v === null || v === '') return '';\n  if (typeof v !== 'string') { errors.push({ field: k, code: 'must_be_string' }); return ''; }\n  if (v.length > max) { errors.push({ field: k, code: 'too_long', detail: `max ${max}` }); return ''; }\n  return v.replace(/[\\u0000-\\u001f]/g, ' ').trim();\n};\nconst email = str('email', 254).toLowerCase();\nif (!email) { if (!errors.some(e => e.field === 'email')) errors.push({ field: 'email', code: 'required' }); }\nelse if (!/^[a-z0-9._%+\\-]+@[a-z0-9\\-]+(\\.[a-z0-9\\-]+)*\\.[a-z]{2,}$/i.test(email)) errors.push({ field: 'email', code: 'invalid_format' });\nconst lead = { email, name: str('name', 100), company: str('company', 120), country: str('country', 60),\n  phone: str('phone', 40), message: str('message', 2000), source: str('source', 40) || 'webhook' };\nconst crypto = require('crypto');\nconst key = String(headers['idempotency-key'] || b.idempotency_key || '').slice(0, 120)\n  || 'lead:' + crypto.createHash('sha256').update(email).digest('hex').slice(0, 32);\nconst domain = email.includes('@') ? email.split('@')[1] : '';\nconst out = { valid: errors.length === 0, domain, key, ...lead, lead,\n  chaos: String(headers['x-hub-chaos'] || '') };\nif (!out.valid) {\n  out.status = errors.some(e => e.code === 'payload_too_large') ? 413 : 422;\n  out.response = { ok: false, error: 'validation_failed', errors, trace: ['webhook', 'validate:rejected'] };\n}\nreturn [{ json: out }];"
+      },
+      "id": "cbb3edb9-1856-5744-b06c-a35fbe77e405",
+      "name": "Validate payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ecb2e7a1-c7c8-5444-a55c-69515a867c51",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ecb2e7a1-c7c8-5444-a55c-69515a867c51",
+      "name": "Payload valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "id": "9da4e2e1-2a34-593e-a2b3-4c9108429af4",
+      "name": "Respond: rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        720,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hubNormalize001",
+          "mode": "list",
+          "cachedResultName": "hub-sub-normalise-contact"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "1c3f6544-30cb-5147-8ee6-65b10ef35f69",
+      "name": "Normalise contact (sub-workflow)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const v = $('Validate payload').first().json, n = $input.first().json;\nconst lead = { ...v.lead, name: n.name || v.lead.name, country_iso: n.country_iso, country_name: n.country_name,\n  phone_e164: n.phone_e164, phone_valid: n.phone_valid };\nreturn [{ json: { key: v.key, domain: v.domain, chaos: v.chaos, lead } }];"
+      },
+      "id": "29700bd2-5ea9-5f08-99de-b9042c80b3f0",
+      "name": "Apply normalised",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select idempotency_key, email, score, tier, reasons, created_at from hub.leads where idempotency_key = $1",
+        "options": {
+          "queryReplacement": "={{ [$json.key] }}"
+        }
+      },
+      "id": "db56b171-016e-5dec-bdb0-2e6a306e8c57",
+      "name": "Dedupe lookup",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1200,
+        260
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Carry the lead forward (parameters downstream only read $json) and flag duplicates.\nconst a = $('Apply normalised').first().json, r = $input.first().json;\nreturn [{ json: { ...a, duplicate: !!r.idempotency_key, existing: r } }];"
+      },
+      "id": "c6e80bd5-7ac0-58a9-ac87-c256b3be393c",
+      "name": "Dedupe result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "13fb820f-056c-5d90-8fa2-163ee20ec2e4",
+              "leftValue": "={{ $json.duplicate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "13fb820f-056c-5d90-8fa2-163ee20ec2e4",
+      "name": "Already seen?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = $input.first().json, r = a.existing;\nreturn [{ json: { status: 200, response: { ok: true, duplicate: true,\n  decision: { tier: r.tier, score: r.score, route: 'already_processed' }, reasons: r.reasons || [],\n  idempotency_key: a.key, first_seen_at: r.created_at,\n  trace: ['webhook', 'validate', 'normalise', 'dedupe:duplicate', 'respond'] } } }];"
+      },
+      "id": "009c4bb9-c1c7-5d13-b610-6badc721ba9c",
+      "name": "Build duplicate response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://cloudflare-dns.com/dns-query",
+        "options": {
+          "timeout": 6000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/dns-json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $json.domain }}"
+            },
+            {
+              "name": "type",
+              "value": "MX"
+            }
+          ]
+        }
+      },
+      "id": "5f3de404-9df6-5f50-b00d-27cf1a55d6ff",
+      "name": "Enrich: MX lookup (DoH)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1920,
+        260
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500
+    },
+    {
+      "parameters": {
+        "jsCode": "// DoH answers with content-type application/dns-json, which n8n hands over as text: parse it (fail-soft).\nconst r = $input.first().json; let mx = { error: true };\ntry { if (!r.error) mx = typeof r.data === 'string' ? JSON.parse(r.data) : r; } catch (e) { /* keep unknown */ }\nreturn [{ json: { ...$('Dedupe result').first().json, mx_raw: mx } }];"
+      },
+      "id": "e39aaf07-970d-5e2e-94fb-c04581922c4b",
+      "name": "Merge MX result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9d76492c-4253-559f-9d31-ef2d6a77def5",
+              "leftValue": "={{ $json.lead.country_iso }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9d76492c-4253-559f-9d31-ef2d6a77def5",
+      "name": "Has country?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2400,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.worldbank.org/v2/country/{{ $json.lead.country_iso }}",
+        "options": {
+          "timeout": 6000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "format",
+              "value": "json"
+            }
+          ]
+        }
+      },
+      "id": "e2066946-2943-5bc6-964c-2658a7e8c07a",
+      "name": "Enrich: country (World Bank)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2640,
+        140
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500
+    },
+    {
+      "parameters": {
+        "jsCode": "// The World Bank returns [meta, [record]]; n8n splits that array into two items. Find the record.\nconst items = $input.all().map(i => i.json);\nconst flat = items.flatMap(x => (x && typeof x === 'object') ? [x, ...Object.values(x)] : []).flatMap(x => Array.isArray(x) ? x : [x]);\nconst rec = flat.find(x => x && x.iso2Code) || null;\nreturn [{ json: { ...$('Merge MX result').first().json, wb: rec } }];"
+      },
+      "id": "bb448dca-d3ab-52f6-9dfc-d52ce81f4a1e",
+      "name": "Merge country result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const a = $input.first().json, lead = a.lead;\nconst mxRes = a.mx_raw || { error: true };\nconst rec = a.wb || null;\nconst R = []; let s = 30;\nconst add = (pts, rule) => { s += pts; R.push({ rule, points: pts }); };\n// 1) deliverability: does the e-mail domain accept mail?\nif (mxRes.error) R.push({ rule: 'mx_check_unavailable', points: 0 });\nelse if (mxRes.Status === 3) add(-40, 'domain_does_not_exist');\nelse if (Array.isArray(mxRes.Answer) && mxRes.Answer.some(x => x.type === 15)) add(20, 'domain_accepts_mail');\nelse add(-25, 'domain_has_no_mx');\n// 2) business vs free / disposable mailbox\nconst free = ['gmail.com','hotmail.com','outlook.com','yahoo.com','icloud.com','proton.me','protonmail.com','live.com','gmx.com','aol.com'];\nconst disposable = ['mailinator.com','guerrillamail.com','10minutemail.com','tempmail.com','yopmail.com','trashmail.com','sharklasers.com'];\nif (disposable.includes(a.domain)) add(-50, 'disposable_domain');\nelse if (free.includes(a.domain)) add(0, 'free_mailbox');\nelse add(20, 'business_domain');\n// 3) completeness\nif (lead.company) add(10, 'company_given');\nif (lead.phone_valid) add(10, 'phone_valid'); else if (lead.phone) add(-5, 'phone_unparseable');\nif (lead.name && lead.name.includes(' ')) add(5, 'full_name');\n// 4) intent signals in the free-text message\nconst m = (lead.message || '').toLowerCase();\nif (/(budget|quote|pricing|proposal|contract|invoice|per month|€|\\$)/.test(m)) add(15, 'intent_budget_or_pricing');\nif (/(urgent|asap|this week|deadline|immediately|next week)/.test(m)) add(10, 'intent_urgency');\nif (/(sales\\s*pitch|seo|backlinks?|crypto|casino|viagra|guest post)/.test(m)) add(-30, 'spam_keywords');\n// 5) market fit from the World Bank country record\nlet region = '', income = '';\nif (rec) { region = rec.region?.value || ''; income = rec.incomeLevel?.value || '';\n  if (/Europe|North America/.test(region)) add(5, 'target_region'); if (/High income/.test(income)) add(5, 'high_income_market'); }\ns = Math.max(0, Math.min(100, s));\nconst tier = s >= 70 ? 'hot' : s >= 45 ? 'warm' : 'cold';\nreturn [{ json: { key: a.key, chaos: a.chaos, lead, score: s, tier, reasons: R, region, income,\n  mx: mxRes.error ? 'unknown' : (mxRes.Status === 3 ? 'nxdomain' : (mxRes.Answer || []).some(x => x.type === 15) ? 'ok' : 'none') } }];"
+      },
+      "id": "69cdc7fa-33df-5898-8026-352d6e5052c2",
+      "name": "Score lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fault injection for tests only: header x-hub-chaos=persist-fail while HUB_CHAOS=true. Disabled in production.\nconst j = $input.first().json;\nif ($env.HUB_CHAOS === 'true' && j.chaos === 'persist-fail') throw new Error('chaos: simulated persistence failure');\nreturn [{ json: j }];"
+      },
+      "id": "623ee719-b2e3-5c15-8ab2-67426d6622af",
+      "name": "Prepare persist (fault-injection hook)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        260
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into hub.leads (idempotency_key,email,name,company,country,phone,score,tier,reasons,source) values ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10) on conflict (idempotency_key) do nothing returning idempotency_key",
+        "options": {
+          "queryReplacement": "={{ [$json.key,$json.lead.email,$json.lead.name,$json.lead.company,$json.lead.country_iso,$json.lead.phone_e164,$json.score,$json.tier,JSON.stringify($json.reasons),$json.lead.source] }}"
+        }
+      },
+      "id": "6a4df8b7-9596-558a-8ad7-13ddf4e448b5",
+      "name": "Persist lead (idempotent upsert)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3600,
+        260
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$('Prepare persist (fault-injection hook)').first().json, persisted: !!$input.first().json.idempotency_key } }];"
+      },
+      "id": "98bfecbc-9186-57b8-acbd-be0bd5cb974c",
+      "name": "Persist result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3840,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "93c0734b-e6de-5139-978a-62ce1d1fca04",
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "hot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "hot"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d6135883-cbbe-52db-b69f-91316f8287a0",
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "warm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "warm"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2a9ac7ff-4673-5c6a-af25-537239254960",
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "cold",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "cold"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5e8e4064-1e83-536a-9c27-afe2d5ab00d3",
+      "name": "Route by tier",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        4080,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $input.first().json, l = s.lead;\nconst hot = s.tier === 'hot';\nreturn [{ json: { level: hot ? 'critical' : 'info',\n  title: `${hot ? '🔥 HOT' : 'WARM'} lead (${s.score}/100)`,\n  text: `${l.name || '(no name)'} <${l.email}> ${l.company ? '· ' + l.company : ''} ${l.country_name ? '· ' + l.country_name : ''}\\nWhy: ${s.reasons.map(r => r.rule + (r.points ? ` ${r.points > 0 ? '+' : ''}${r.points}` : '')).join(', ')}` } }];"
+      },
+      "id": "53ca0bd7-74e1-547e-941f-34c7ab18613f",
+      "name": "Compose notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hubNotify00001",
+          "mode": "list",
+          "cachedResultName": "hub-sub-notify"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "b8af8a04-2b7f-50d1-b646-b7906d74f0f3",
+      "name": "Notify (sub-workflow)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        4560,
+        140
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $('Persist result').first().json, l = s.lead;\nlet sent = null; try { sent = $('Notify (sub-workflow)').first().json.sent; } catch (e) { /* cold lead: no notification */ }\nconst raced = !s.persisted;\nconst route = { hot: 'notify_sales_now', warm: 'notify_and_nurture', cold: 'log_only' }[s.tier];\nconst trace = ['webhook', 'validate', 'normalise', 'dedupe:new', 'enrich:mx', ...(l.country_iso ? ['enrich:country'] : []),\n  'score', 'persist', 'route:' + s.tier, ...(s.tier !== 'cold' ? ['notify'] : []), 'respond'];\nreturn [{ json: { status: 200, response: { ok: true, duplicate: raced,\n  decision: { tier: s.tier, score: s.score, route },\n  reasons: s.reasons, enrichment: { mx: s.mx, region: s.region || null, income_level: s.income || null },\n  normalized: { name: l.name, email: l.email, country: l.country_iso || null, phone: l.phone_e164 || null },\n  notified: sent, idempotency_key: s.key, trace } } }];"
+      },
+      "id": "bd61c5eb-ceb2-5c1f-ad17-2229ef29a070",
+      "name": "Build decision response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4800,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error-output items carry the failure; rebuild the original request from the validated lead.\nconst v = $('Validate payload').first().json, e = $input.first().json.error;\nreturn [{ json: { payload: JSON.stringify({ ...v.lead, idempotency_key: v.key }),\n  error: String((e && (e.message || e)) || 'persist failed').slice(0, 500) } }];"
+      },
+      "id": "3945bc7d-1cbd-5230-af10-7512f3a6875d",
+      "name": "Prepare dead letter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3840,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into hub.dead_letters (source, payload, error) values ('lead-intake', $1::jsonb, $2) returning id",
+        "options": {
+          "queryReplacement": "={{ [$json.payload, $json.error] }}"
+        }
+      },
+      "id": "687cdf2a-d636-5e24-bcd9-d74d68391de1",
+      "name": "Dead-letter: store for replay",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        4080,
+        560
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "const v = $('Validate payload').first().json;\nreturn [{ json: { status: 202, response: { ok: true, accepted: true,\n  decision: { tier: null, score: null, route: 'queued_for_replay' },\n  message: 'Persistence failed; the lead was stored in the dead-letter queue and will be replayed.',\n  idempotency_key: v.key, trace: ['webhook', 'validate', 'normalise', 'dedupe:new', 'score', 'persist:failed', 'dead-letter', 'respond'] } } }];"
+      },
+      "id": "1c79efe6-f292-5f05-97d4-b99e1875c28c",
+      "name": "Build accepted response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "id": "e1182c91-7a02-574c-be27-c4f9be070246",
+      "name": "Respond: decision",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        5040,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Lead intake\n`POST /webhook/demo-lead-intake`\n\n1. **Validate** shape, size (<8 KB) and e-mail -> 422/413\n2. **Normalise** name/country/phone (sub-workflow)\n3. **Dedupe** on idempotency key (header or hash of e-mail)\n4. **Enrich**: MX via DNS-over-HTTPS, country via World Bank (fail-soft)\n5. **Score** 0-100 with explainable reasons\n6. **Route** hot / warm / cold, persist, notify\n7. **Respond** with the decision JSON\n\nPersistence errors go to a dead-letter table (replayed by `hub-ops-dead-letter-replay`). Synthetic demo data only.",
+        "height": 300,
+        "width": 560,
+        "color": 4
+      },
+      "id": "7d0d5a97-5386-5fd9-a0fc-bf8ac2d3b01b",
+      "name": "Note: hub-lead-intake",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Retry-on-fail + timeouts on every network/DB node.\nEnrichment is fail-soft (`continueRegularOutput`) so a slow DNS/API never blocks a lead.\n`Prepare persist` has a test-only fault-injection hook (`HUB_CHAOS`).",
+        "height": 140,
+        "width": 600,
+        "color": 3
+      },
+      "id": "c0e6e981-0078-5c57-896d-832ffa888344",
+      "name": "Note: Resilience",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3320,
+        -30
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: lead": {
+      "main": [
+        [
+          {
+            "node": "Validate payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate payload": {
+      "main": [
+        [
+          {
+            "node": "Payload valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payload valid?": {
+      "main": [
+        [
+          {
+            "node": "Normalise contact (sub-workflow)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalise contact (sub-workflow)": {
+      "main": [
+        [
+          {
+            "node": "Apply normalised",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply normalised": {
+      "main": [
+        [
+          {
+            "node": "Dedupe lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dedupe lookup": {
+      "main": [
+        [
+          {
+            "node": "Dedupe result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dedupe result": {
+      "main": [
+        [
+          {
+            "node": "Already seen?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already seen?": {
+      "main": [
+        [
+          {
+            "node": "Build duplicate response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enrich: MX lookup (DoH)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build duplicate response": {
+      "main": [
+        [
+          {
+            "node": "Respond: decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich: MX lookup (DoH)": {
+      "main": [
+        [
+          {
+            "node": "Merge MX result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge MX result": {
+      "main": [
+        [
+          {
+            "node": "Has country?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has country?": {
+      "main": [
+        [
+          {
+            "node": "Enrich: country (World Bank)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Score lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich: country (World Bank)": {
+      "main": [
+        [
+          {
+            "node": "Merge country result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge country result": {
+      "main": [
+        [
+          {
+            "node": "Score lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score lead": {
+      "main": [
+        [
+          {
+            "node": "Prepare persist (fault-injection hook)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare persist (fault-injection hook)": {
+      "main": [
+        [
+          {
+            "node": "Persist lead (idempotent upsert)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare dead letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist lead (idempotent upsert)": {
+      "main": [
+        [
+          {
+            "node": "Persist result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare dead letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist result": {
+      "main": [
+        [
+          {
+            "node": "Route by tier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by tier": {
+      "main": [
+        [
+          {
+            "node": "Compose notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compose notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build decision response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose notification": {
+      "main": [
+        [
+          {
+            "node": "Notify (sub-workflow)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify (sub-workflow)": {
+      "main": [
+        [
+          {
+            "node": "Build decision response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build decision response": {
+      "main": [
+        [
+          {
+            "node": "Respond: decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare dead letter": {
+      "main": [
+        [
+          {
+            "node": "Dead-letter: store for replay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dead-letter: store for replay": {
+      "main": [
+        [
+          {
+            "node": "Build accepted response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build accepted response": {
+      "main": [
+        [
+          {
+            "node": "Respond: decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 300,
+    "timezone": "Europe/Madrid",
+    "errorWorkflow": "hubErrorHandle1"
+  },
+  "tags": [
+    {
+      "id": "hubtag000000001",
+      "name": "n8n-automation-hub"
+    },
+    {
+      "id": "hubtag_lead_intake",
+      "name": "lead-intake"
+    },
+    {
+      "id": "hubtag_webhook",
+      "name": "webhook"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}

@@ -1,0 +1,307 @@
+{
+  "id": "hubHealthReport1",
+  "name": "hub-ops-daily-health-report",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "43fb9ba9-8400-5577-913a-27dc0967d10e",
+      "name": "Schedule: daily 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "49554877-74e2-5bad-b11c-b0c13bb20924",
+      "name": "Manual / headless trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select w.name as workflow, e.status, count(*)::int as n from n8n.execution_entity e join n8n.workflow_entity w on w.id = e.\"workflowId\" where e.\"startedAt\" > now() - interval '24 hours' group by 1,2 order by 1,2",
+        "options": {}
+      },
+      "id": "b2244c19-0905-52b2-ade0-a64f5831a33c",
+      "name": "Executions last 24h (n8n DB)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        250,
+        220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select (select count(*)::int from hub.leads where created_at > now() - interval '24 hours') as leads_24h, (select count(*)::int from hub.tickets where created_at > now() - interval '24 hours') as tickets_24h, (select count(*)::int from hub.tickets where created_at > now() - interval '24 hours' and classifier='fallback') as fallback_24h, (select count(*)::int from hub.dead_letters where status='pending') as dlq_pending, (select count(*)::int from hub.error_log where created_at > now() - interval '24 hours') as errors_24h",
+        "options": {}
+      },
+      "id": "31d55842-6dc1-5a13-a7d9-bd58e8d13b72",
+      "name": "Business counters (hub DB)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        500,
+        220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $('Executions last 24h (n8n DB)').all().map(i => i.json).filter(r => r.workflow);\nconst b = $input.first().json;\nconst by = {}; let ok = 0, bad = 0;\nfor (const r of rows) { by[r.workflow] = by[r.workflow] || { success: 0, error: 0, other: 0 };\n  const k = r.status === 'success' ? 'success' : (r.status === 'error' || r.status === 'crashed') ? 'error' : 'other';\n  by[r.workflow][k] += r.n; if (k === 'success') ok += r.n; if (k === 'error') bad += r.n; }\nconst total = ok + bad, rate = total ? Math.round(ok / total * 1000) / 10 : 100;\nconst lines = Object.entries(by).map(([w, c]) => `${w.padEnd(28)} ok ${String(c.success).padStart(3)}  fail ${String(c.error).padStart(3)}`);\nconst level = bad > 0 || b.dlq_pending > 0 ? 'warn' : 'info';\nconst text = `Success rate ${rate}% (${ok}/${total})  ·  leads ${b.leads_24h}  tickets ${b.tickets_24h} (LLM fallback ${b.fallback_24h})  ·  DLQ pending ${b.dlq_pending}\\n\\`\\`\\`\\n${lines.join('\\n') || 'no executions in the last 24h'}\\n\\`\\`\\``;\nreturn [{ json: { date: new Date().toISOString().slice(0, 10), success: ok, failed: bad, by_workflow: by, rate, ...b, level, title: 'n8n daily health report', text } }];"
+      },
+      "id": "ea003a60-1e40-5b11-bf67-c959f8416f0d",
+      "name": "Build report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into hub.health_reports (report_date, success, failed, by_workflow) values ($1,$2,$3,$4::jsonb) on conflict (report_date) do update set success=excluded.success, failed=excluded.failed, by_workflow=excluded.by_workflow, created_at=now() returning report_date",
+        "options": {
+          "queryReplacement": "={{ [$json.date,$json.success,$json.failed,JSON.stringify($json.by_workflow)] }}"
+        }
+      },
+      "id": "98fc9d75-5e34-54dc-b334-370711123843",
+      "name": "Save report (upsert by day)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1000,
+        220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Build report').first().json }];"
+      },
+      "id": "5813b711-e551-55e7-acd2-6261aa6da076",
+      "name": "Restore report payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hubNotify00001",
+          "mode": "list",
+          "cachedResultName": "hub-sub-notify"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "437027d8-af45-56f7-b3e2-3d8ac1c5df7d",
+      "name": "Notify (sub-workflow)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1500,
+        220
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('Build report').first().json; return [{ json: { date: r.date, success: r.success, failed: r.failed, rate: r.rate, dlq_pending: r.dlq_pending } }];"
+      },
+      "id": "03d40ad6-7f5d-5d8a-ac8a-3aed684b2bcd",
+      "name": "Report result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1750,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Daily health report\nReads n8n's own execution table (schema `n8n`) plus business counters (schema `hub`).\n\n- success / failed per workflow, last 24 h\n- leads, tickets, **LLM-fallback ratio**, dead-letter backlog, error_log count\n- upserts one row per day in `hub.health_reports`, then notifies\n\nNo API key needed: it queries the database directly.",
+        "height": 220,
+        "width": 560,
+        "color": 4
+      },
+      "id": "8da15fe8-6b09-5b4c-9046-75fb3027398f",
+      "name": "Note: hub-ops-daily-health-report",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -140
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule: daily 07:00": {
+      "main": [
+        [
+          {
+            "node": "Executions last 24h (n8n DB)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual / headless trigger": {
+      "main": [
+        [
+          {
+            "node": "Executions last 24h (n8n DB)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executions last 24h (n8n DB)": {
+      "main": [
+        [
+          {
+            "node": "Business counters (hub DB)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Business counters (hub DB)": {
+      "main": [
+        [
+          {
+            "node": "Build report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build report": {
+      "main": [
+        [
+          {
+            "node": "Save report (upsert by day)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save report (upsert by day)": {
+      "main": [
+        [
+          {
+            "node": "Restore report payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore report payload": {
+      "main": [
+        [
+          {
+            "node": "Notify (sub-workflow)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify (sub-workflow)": {
+      "main": [
+        [
+          {
+            "node": "Report result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 300,
+    "timezone": "Europe/Madrid",
+    "errorWorkflow": "hubErrorHandle1"
+  },
+  "tags": [
+    {
+      "id": "hubtag000000001",
+      "name": "n8n-automation-hub"
+    },
+    {
+      "id": "hubtag_ops",
+      "name": "ops"
+    },
+    {
+      "id": "hubtag_schedule",
+      "name": "schedule"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}

@@ -1,0 +1,217 @@
+{
+  "id": "hubNotify00001",
+  "name": "hub-sub-notify",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "8cfaa608-9797-51b3-9d07-b54ec8257373",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input: { title, text, level: info|warn|critical }. Output is Discord/Slack-compatible.\nconst i = $input.first().json;\nconst icon = { info: 'ℹ️', warn: '⚠️', critical: '🚨' }[i.level] || 'ℹ️';\nconst content = `${icon} **${String(i.title || 'n8n-automation-hub').slice(0, 120)}**\\n${String(i.text || '')}`.slice(0, 1900);\nconst url = $env.HUB_NOTIFY_URL || '';\nreturn [{ json: { url, has_url: !!url, payload: { username: 'n8n-automation-hub', content, text: content } } }];"
+      },
+      "id": "2657c2de-6228-502e-9468-8ed92e5cb928",
+      "name": "Format message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f37bcf1f-8615-5edd-8a6c-459aab06feb6",
+              "leftValue": "={{ $json.has_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f37bcf1f-8615-5edd-8a6c-459aab06feb6",
+      "name": "Notify URL configured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 8000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}"
+      },
+      "id": "9c03e9e9-3359-5238-b7ce-0ec5d522d01b",
+      "name": "POST to webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        760,
+        120
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500
+    },
+    {
+      "parameters": {
+        "jsCode": "const failed = !!$input.first().json.error;\nreturn [{ json: { sent: !failed, reason: failed ? 'delivery_failed' : 'ok' } }];"
+      },
+      "id": "ac6a1aa2-8495-5d00-a1ad-c2df20f965db",
+      "name": "Result: sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { sent: false, reason: 'no_notify_url_configured' } }];"
+      },
+      "id": "5e7b3e0d-f250-54cf-a731-b8f18341835f",
+      "name": "Result: skipped",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Shared notifier\nSub-workflow used by every other workflow (Execute Workflow node).\n\n- Input: `title`, `text`, `level`\n- Posts a Discord/Slack-compatible JSON body to env `HUB_NOTIFY_URL`\n- No URL configured -> skips quietly (demo mode)\n- 8 s timeout, 2 tries, never fails the caller",
+        "height": 200,
+        "width": 420,
+        "color": 4
+      },
+      "id": "33eb6c45-9fd7-5536-a129-799dd43c9bac",
+      "name": "Note: What this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format message": {
+      "main": [
+        [
+          {
+            "node": "Notify URL configured?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify URL configured?": {
+      "main": [
+        [
+          {
+            "node": "POST to webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Result: skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST to webhook": {
+      "main": [
+        [
+          {
+            "node": "Result: sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 300,
+    "timezone": "Europe/Madrid"
+  },
+  "tags": [
+    {
+      "id": "hubtag000000001",
+      "name": "n8n-automation-hub"
+    },
+    {
+      "id": "hubtag_sub_workflow",
+      "name": "sub-workflow"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}

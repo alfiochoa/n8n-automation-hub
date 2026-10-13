@@ -1,0 +1,84 @@
+{
+  "id": "hubNormalize001",
+  "name": "hub-sub-normalise-contact",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "66aa8354-b9a5-5fd6-ac30-52abd56221a9",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input: { name, country, phone }  ->  { name, country_iso, country_name, phone_e164, phone_valid }\nconst i = $input.first().json;\nconst C = { // alias -> [ISO2, calling code, name]\n  'es':['ES','34','Spain'],'spain':['ES','34','Spain'],'españa':['ES','34','Spain'],'espana':['ES','34','Spain'],\n  'gb':['GB','44','United Kingdom'],'uk':['GB','44','United Kingdom'],'united kingdom':['GB','44','United Kingdom'],'england':['GB','44','United Kingdom'],\n  'us':['US','1','United States'],'usa':['US','1','United States'],'united states':['US','1','United States'],'united states of america':['US','1','United States'],\n  'de':['DE','49','Germany'],'germany':['DE','49','Germany'],'deutschland':['DE','49','Germany'],\n  'fr':['FR','33','France'],'france':['FR','33','France'],\n  'it':['IT','39','Italy'],'italy':['IT','39','Italy'],'italia':['IT','39','Italy'],\n  'pt':['PT','351','Portugal'],'portugal':['PT','351','Portugal'],\n  'nl':['NL','31','Netherlands'],'netherlands':['NL','31','Netherlands'],'holland':['NL','31','Netherlands'],\n  'ie':['IE','353','Ireland'],'ireland':['IE','353','Ireland'],\n  'ch':['CH','41','Switzerland'],'switzerland':['CH','41','Switzerland'],\n  'be':['BE','32','Belgium'],'belgium':['BE','32','Belgium'],\n  'se':['SE','46','Sweden'],'sweden':['SE','46','Sweden'],\n  'mx':['MX','52','Mexico'],'mexico':['MX','52','Mexico'],'méxico':['MX','52','Mexico'],\n  'ar':['AR','54','Argentina'],'argentina':['AR','54','Argentina'],\n  'co':['CO','57','Colombia'],'colombia':['CO','57','Colombia'],\n  'cl':['CL','56','Chile'],'chile':['CL','56','Chile'],\n  'br':['BR','55','Brazil'],'brazil':['BR','55','Brazil'],'brasil':['BR','55','Brazil'],\n  'ca':['CA','1','Canada'],'canada':['CA','1','Canada'],\n  'au':['AU','61','Australia'],'australia':['AU','61','Australia'],\n  'in':['IN','91','India'],'india':['IN','91','India'],\n  'ae':['AE','971','United Arab Emirates'],'uae':['AE','971','United Arab Emirates'],\n  'pl':['PL','48','Poland'],'poland':['PL','48','Poland'],\n  'ro':['RO','40','Romania'],'romania':['RO','40','Romania'],\n};\nconst small = new Set(['de','van','von','da','di','del','la','el','y','e']);\nconst titleCase = s => s.trim().replace(/\\s+/g, ' ').split(' ')\n  .map((w, k) => (k > 0 && small.has(w.toLowerCase())) ? w.toLowerCase()\n    : w.split('-').map(p => p ? p[0].toUpperCase() + p.slice(1).toLowerCase() : p).join('-')).join(' ');\nconst name = i.name ? titleCase(String(i.name)) : '';\nconst hit = C[String(i.country || '').trim().toLowerCase()];\nconst iso = hit ? hit[0] : '';\nlet digits = String(i.phone || '').replace(/[^\\d+]/g, '');\nif (digits.startsWith('00')) digits = '+' + digits.slice(2);\nlet e164 = '';\nif (digits.startsWith('+')) e164 = '+' + digits.slice(1).replace(/\\D/g, '');\nelse if (digits && hit) e164 = '+' + hit[1] + digits.replace(/\\D/g, '').replace(/^0+/, '');\nconst len = e164.replace(/\\D/g, '').length;\nconst phone_valid = !!e164 && len >= 8 && len <= 15;\nreturn [{ json: { name, country_iso: iso, country_name: hit ? hit[2] : '', country_recognised: !!hit || !i.country,\n  phone_e164: phone_valid ? e164 : '', phone_valid } }];"
+      },
+      "id": "94932569-aa8f-5c74-b53c-82da0a8b1c18",
+      "name": "Normalise name, country, phone",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Contact normaliser\nSub-workflow called by `hub-lead-intake`.\n\n- Name -> Title Case (keeps *de/van/von*)\n- Country alias/name -> ISO-2 (40+ aliases)\n- Phone -> E.164 using the country calling code; validated 8-15 digits\n- Pure function: no network, no DB",
+        "height": 200,
+        "width": 420,
+        "color": 4
+      },
+      "id": "b770821f-497c-50f4-a04c-a60127768b5d",
+      "name": "Note: What this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalise name, country, phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 300,
+    "timezone": "Europe/Madrid"
+  },
+  "tags": [
+    {
+      "id": "hubtag000000001",
+      "name": "n8n-automation-hub"
+    },
+    {
+      "id": "hubtag_sub_workflow",
+      "name": "sub-workflow"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}

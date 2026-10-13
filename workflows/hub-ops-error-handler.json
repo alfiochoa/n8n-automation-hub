@@ -1,0 +1,177 @@
+{
+  "id": "hubErrorHandle1",
+  "name": "hub-ops-error-handler",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "6129e509-74a5-574d-9116-146883db2598",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One normalised record per failure: queryable in Postgres, readable in chat.\nconst e = $input.first().json, x = e.execution || {}, w = e.workflow || {};\nconst msg = String(x.error?.message || 'unknown error').replace(/(key|token|secret|password)[=:]\\s*\\S+/gi, '$1=[redacted]').slice(0, 500);\nreturn [{ json: { workflow_id: w.id || null, workflow_name: w.name || null, execution_id: x.id || null,\n  failed_node: x.lastNodeExecuted || null, message: msg, mode: x.mode || null,\n  level: 'critical', title: `Workflow failed: ${w.name}`,\n  text: `Node: ${x.lastNodeExecuted}\\nError: ${msg}\\nExecution: ${x.id} (${x.mode})` } }];"
+      },
+      "id": "2fd393c6-ecf6-5075-ac3e-217fb5caf8ba",
+      "name": "Structured error record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into hub.error_log (workflow_id, workflow_name, execution_id, failed_node, message, mode) values ($1,$2,$3,$4,$5,$6) returning id",
+        "options": {
+          "queryReplacement": "={{ [$json.workflow_id,$json.workflow_name,$json.execution_id,$json.failed_node,$json.message,$json.mode] }}"
+        }
+      },
+      "id": "19f25777-090d-58a4-929a-cb3104fee8fb",
+      "name": "Store in error_log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        500,
+        220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Structured error record').first().json }];"
+      },
+      "id": "473caf18-c921-55fb-9313-46e11b032c18",
+      "name": "Restore record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hubNotify00001",
+          "mode": "list",
+          "cachedResultName": "hub-sub-notify"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "cfdd0c9b-1038-5607-8676-3f7ef0ec2ce0",
+      "name": "Notify (sub-workflow)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        220
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Global error workflow\nSet as `errorWorkflow` in the settings of every other workflow.\n\n1. Error Trigger -> structured record (secrets scrubbed)\n2. Persist to `hub.error_log`\n3. Notify (level `critical`)\n\nStoring the record is itself fail-soft so the notification always goes out.",
+        "height": 200,
+        "width": 520,
+        "color": 4
+      },
+      "id": "a92c609c-7d58-5c0f-b654-b9e1038d1a09",
+      "name": "Note: hub-ops-error-handler",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Structured error record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured error record": {
+      "main": [
+        [
+          {
+            "node": "Store in error_log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store in error_log": {
+      "main": [
+        [
+          {
+            "node": "Restore record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore record": {
+      "main": [
+        [
+          {
+            "node": "Notify (sub-workflow)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 300,
+    "timezone": "Europe/Madrid"
+  },
+  "tags": [
+    {
+      "id": "hubtag000000001",
+      "name": "n8n-automation-hub"
+    },
+    {
+      "id": "hubtag_ops",
+      "name": "ops"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}

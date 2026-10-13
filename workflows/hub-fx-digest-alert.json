@@ -1,0 +1,335 @@
+{
+  "id": "hubFxDigest0001",
+  "name": "hub-fx-digest-alert",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "913138be-adfb-5c7e-8e2e-e5c365e132f7",
+      "name": "Schedule: weekdays 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        140
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "68465e3a-4875-50ab-9bcb-7b0b348b171b",
+      "name": "Manual / headless trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tunable in one place. Env overrides let CI/ops change them without editing the workflow.\nconst env = (k, d) => ($env[k] !== undefined && $env[k] !== '' ? $env[k] : d);\nconst symbols = String(env('FX_SYMBOLS', 'USD,GBP,CHF,JPY,CNY')).split(',');\nconst days = Number(env('FX_HISTORY_DAYS', 30));\nconst end = new Date(); const start = new Date(end.getTime() - days * 86400000);\nconst iso = d => d.toISOString().slice(0, 10);\nreturn [{ json: { base: env('FX_BASE', 'EUR'), symbols: symbols.join(','), start: iso(start), end: iso(end),\n  pct_threshold: Number(env('FX_PCT_THRESHOLD', 0.7)), z_threshold: Number(env('FX_Z_THRESHOLD', 2)) } }];"
+      },
+      "id": "ec6c7245-c39d-5a10-9572-a7d5fb516318",
+      "name": "Config (thresholds)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.frankfurter.dev/v1/latest",
+        "options": {
+          "timeout": 15000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "base",
+              "value": "={{ $json.base }}"
+            },
+            {
+              "name": "symbols",
+              "value": "={{ $json.symbols }}"
+            }
+          ]
+        }
+      },
+      "id": "7a26a69e-2164-5e42-88ae-969dd12f56e9",
+      "name": "Frankfurter: latest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        500,
+        170
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$('Config (thresholds)').first().json, latest: $input.first().json } }];"
+      },
+      "id": "f40f7246-4123-5e3c-91d3-a1ebe400d543",
+      "name": "Merge latest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        170
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.frankfurter.dev/v1/{{ $json.start }}..{{ $json.end }}",
+        "options": {
+          "timeout": 15000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "base",
+              "value": "={{ $json.base }}"
+            },
+            {
+              "name": "symbols",
+              "value": "={{ $json.symbols }}"
+            }
+          ]
+        }
+      },
+      "id": "5d0f32d1-e2e9-5775-bc9c-9956126788c7",
+      "name": "Frankfurter: 30-day history",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1000,
+        170
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Config (thresholds)').first().json;\nconst latest = $('Merge latest').first().json.latest;\nconst hist = $input.first().json;\nconst dates = Object.keys(hist.rates).sort();\nconst out = [];\nfor (const cur of cfg.symbols.split(',')) {\n  const s = dates.map(d => hist.rates[d][cur]).filter(x => typeof x === 'number');\n  if (s.length < 8) { out.push({ cur, error: 'insufficient_history', points: s.length }); continue; }\n  const rets = s.slice(1).map((p, i) => Math.log(p / s[i]));\n  const last = rets[rets.length - 1], base = rets.slice(0, -1);\n  const mean = base.reduce((a, b) => a + b, 0) / base.length;\n  const sd = Math.sqrt(base.reduce((a, b) => a + (b - mean) ** 2, 0) / (base.length - 1));\n  const z = sd > 0 ? (last - mean) / sd : 0;\n  const pct1d = (Math.exp(last) - 1) * 100, pct30 = (s[s.length - 1] / s[0] - 1) * 100;\n  const price = latest.rates[cur] ?? s[s.length - 1];\n  const reasons = [];\n  if (Math.abs(pct1d) >= cfg.pct_threshold) reasons.push(`1d move ${pct1d.toFixed(2)}% >= ${cfg.pct_threshold}%`);\n  if (Math.abs(z) >= cfg.z_threshold) reasons.push(`z-score ${z.toFixed(2)} >= ${cfg.z_threshold}`);\n  out.push({ cur, rate: price, pct1d: +pct1d.toFixed(3), pct30: +pct30.toFixed(2), z: +z.toFixed(2),\n    min30: Math.min(...s), max30: Math.max(...s), points: s.length, unusual: reasons.length > 0, reasons });\n}\nreturn [{ json: { as_of: latest.date, base: cfg.base, pairs: out, unusual: out.filter(p => p.unusual).map(p => p.cur) } }];"
+      },
+      "id": "a564021f-b9d5-57f7-b225-971178b14d31",
+      "name": "Analyse: % move + z-score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        170
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst pad = (s, n) => String(s).padEnd(n), arrow = v => (v > 0 ? '▲' : v < 0 ? '▼' : '■');\nconst rows = d.pairs.filter(p => !p.error).map(p =>\n  `${pad(d.base + '/' + p.cur, 8)} ${pad(p.rate, 9)} ${arrow(p.pct1d)}${pad(Math.abs(p.pct1d).toFixed(2) + '%', 7)} 30d ${pad((p.pct30 > 0 ? '+' : '') + p.pct30 + '%', 8)} z=${p.z}${p.unusual ? '  ⚠ UNUSUAL' : ''}`);\nconst head = d.unusual.length ? `Unusual moves: ${d.unusual.join(', ')}` : 'No unusual moves today';\nconst text = `${head} (as of ${d.as_of})\\n\\`\\`\\`\\n${rows.join('\\n')}\\n\\`\\`\\``;\nreturn [{ json: { ...d, level: d.unusual.length ? 'warn' : 'info', title: `FX digest ${d.as_of}`, text } }];"
+      },
+      "id": "59668047-beb5-559a-b7d9-aaf1e07eca59",
+      "name": "Format digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        170
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hubNotify00001",
+          "mode": "list",
+          "cachedResultName": "hub-sub-notify"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "d62249af-5f7c-55b4-a270-0ba42fe7a833",
+      "name": "Notify (sub-workflow)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1750,
+        170
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Format digest').first().json;\nreturn [{ json: { as_of: d.as_of, unusual: d.unusual, pairs: d.pairs.length, notified: ($input.first().json || {}).sent ?? false, digest: d.text } }];"
+      },
+      "id": "c4ef5f0d-b027-5d6e-b0a5-423e9eb73b78",
+      "name": "Digest result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        170
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## FX digest + unusual-move alert\nSchedule (weekdays 08:00 Madrid) or headless: `n8n execute --id hubFxDigest0001`.\n\n1. Frankfurter (ECB reference rates): latest + 30-day history\n2. Per pair: 1-day move, 30-day move, **z-score** of the last daily log-return vs the previous 29\n3. Flag if `|1d| >= 0.7%` **or** `|z| >= 2` (env-tunable)\n4. Digest -> shared notifier (Discord/Slack compatible)\n\nFree, no key. ECB publishes ~16:00 CET on working days, so weekend/holiday gaps are expected.",
+        "height": 260,
+        "width": 560,
+        "color": 4
+      },
+      "id": "d4f0a06f-5cb0-5dd9-9615-5749fab204a3",
+      "name": "Note: hub-fx-digest-alert",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -160
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule: weekdays 08:00": {
+      "main": [
+        [
+          {
+            "node": "Config (thresholds)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual / headless trigger": {
+      "main": [
+        [
+          {
+            "node": "Config (thresholds)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config (thresholds)": {
+      "main": [
+        [
+          {
+            "node": "Frankfurter: latest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Frankfurter: latest": {
+      "main": [
+        [
+          {
+            "node": "Merge latest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge latest": {
+      "main": [
+        [
+          {
+            "node": "Frankfurter: 30-day history",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Frankfurter: 30-day history": {
+      "main": [
+        [
+          {
+            "node": "Analyse: % move + z-score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyse: % move + z-score": {
+      "main": [
+        [
+          {
+            "node": "Format digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format digest": {
+      "main": [
+        [
+          {
+            "node": "Notify (sub-workflow)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify (sub-workflow)": {
+      "main": [
+        [
+          {
+            "node": "Digest result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 300,
+    "timezone": "Europe/Madrid",
+    "errorWorkflow": "hubErrorHandle1"
+  },
+  "tags": [
+    {
+      "id": "hubtag000000001",
+      "name": "n8n-automation-hub"
+    },
+    {
+      "id": "hubtag_fx",
+      "name": "fx"
+    },
+    {
+      "id": "hubtag_schedule",
+      "name": "schedule"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}

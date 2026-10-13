@@ -1,0 +1,630 @@
+{
+  "id": "hubPriceScrape1",
+  "name": "hub-price-scraper-alerts",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "346b3348-9052-553c-9264-e412539cbd03",
+      "name": "Schedule: every 6 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        180
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "fce4e003-fcf1-52ed-996d-72498c650a99",
+      "name": "Manual / headless trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const env = (k, d) => ($env[k] !== undefined && $env[k] !== '' ? $env[k] : d);\nconst pages = Number(env('SCRAPE_PAGES', 3)), base = env('SCRAPE_BASE_URL', 'https://books.toscrape.com').replace(/\\/$/, '');\nconst items = [];\nfor (let p = 1; p <= pages; p++) items.push({ json: { page: p, url: `${base}/catalogue/page-${p}.html`, robots_url: `${base}/robots.txt`,\n  drop_pct: Number(env('SCRAPE_DROP_PCT', 5)), delay_s: Number(env('SCRAPE_DELAY_S', 1)) } });\nreturn items;"
+      },
+      "id": "c8ca3e0c-cf92-551c-9d82-dc5c094a6978",
+      "name": "Config + pages to crawl",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.robots_url }}",
+        "options": {
+          "timeout": 8000,
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "n8n-automation-hub/1.0 (+https://github.com/alfiochoa/n8n-automation-hub; portfolio demo, polite crawler)"
+            }
+          ]
+        }
+      },
+      "id": "b429d42e-c2e6-5351-b605-66e963d8e4bc",
+      "name": "robots.txt check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        500,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": false,
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Disallow rules for '*'. 404 (the sandbox has none) means everything is allowed.\nconst raw = $input.first().json;\nconst txt = typeof raw.data === 'string' && !raw.error ? raw.data : '';\nlet applies = false; const dis = [];\nfor (const line of txt.split('\\n')) { const l = line.trim();\n  if (/^user-agent:\\s*\\*/i.test(l)) applies = true; else if (/^user-agent:/i.test(l)) applies = false;\n  else if (applies && /^disallow:/i.test(l)) { const p = l.split(':')[1].trim(); if (p) dis.push(p); } }\nconst pages = $('Config + pages to crawl').all().map(i => i.json);\nconst ok = pages.filter(p => !dis.some(d => new URL(p.url).pathname.startsWith(d)));\nif (!ok.length) throw new Error('robots.txt disallows every configured page');\nreturn ok.map(p => ({ json: { ...p, robots_rules: dis.length } }));"
+      },
+      "id": "36676ec6-8cd7-5fe6-880f-5a9f64299736",
+      "name": "Respect robots.txt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "e47c1698-84b3-50ec-bce4-467a1b0baeee",
+      "name": "Loop pages (Split In Batches)",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "n8n-automation-hub/1.0 (+https://github.com/alfiochoa/n8n-automation-hub; portfolio demo, polite crawler)"
+            }
+          ]
+        }
+      },
+      "id": "f83a2bd3-a6c6-5d4d-9297-539a47189577",
+      "name": "GET catalogue page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1250,
+        420
+      ],
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "sourceData": "json",
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "titles",
+              "cssSelector": "article.product_pod h3 a",
+              "returnValue": "attribute",
+              "attribute": "title",
+              "returnArray": true
+            },
+            {
+              "key": "hrefs",
+              "cssSelector": "article.product_pod h3 a",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "prices",
+              "cssSelector": "article.product_pod .price_color",
+              "returnArray": true
+            },
+            {
+              "key": "stock",
+              "cssSelector": "article.product_pod .availability",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {
+          "trimValues": true,
+          "cleanUpText": true
+        }
+      },
+      "id": "1c2d21a6-c980-5638-a878-bc4ee9ab9b77",
+      "name": "HTML Extract: books",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zip the parallel arrays into book records. If selectors stop matching, flag it instead of silently returning nothing.\nconst j = $input.first().json, page = $('Loop pages (Split In Batches)').first().json.page;\nconst n = (j.titles || []).length;\nconst consistent = n > 0 && [j.hrefs, j.prices, j.stock].every(a => (a || []).length === n);\nconst delay_s = Number($('Loop pages (Split In Batches)').first().json.delay_s);\nif (!consistent) return [{ json: { broken: true, page, delay_s, books: [], counts: { titles: n, hrefs: (j.hrefs || []).length, prices: (j.prices || []).length, stock: (j.stock || []).length } } }];\nreturn [{ json: { broken: false, page, delay_s, books: j.titles.map((title, i) => ({ page, title,\n  book_id: j.hrefs[i].split('/')[0], price_gbp: Number(j.prices[i].replace(/[^0-9.]/g, '')), in_stock: /in stock/i.test(j.stock[i]) })) } }];"
+      },
+      "id": "5934a195-f175-5ab8-ac85-0dd8e132e93f",
+      "name": "Normalise + breakage detector",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1750,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.delay_s }}",
+        "unit": "seconds"
+      },
+      "id": "f7f6bd3c-e579-56d0-8ad4-82cc272a0467",
+      "name": "Rate limit (Wait)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2000,
+        420
+      ],
+      "webhookId": "13887da0-13e8-5d06-9353-b5d6bdeed84c"
+    },
+    {
+      "parameters": {
+        "jsCode": "const all = $input.all().map(i => i.json);\nconst broken = all.filter(x => x.broken), books = all.filter(x => !x.broken).flatMap(x => x.books);\nconst dedup = Object.values(Object.fromEntries(books.map(b => [b.book_id, b])));\nreturn [{ json: { books: dedup, broken, pages_failed: broken.length, count: dedup.length } }];"
+      },
+      "id": "e20c8b7b-88b0-56bb-be79-87e6901c46bf",
+      "name": "Collect scraped books",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select book_id, price_gbp::float8 as price_gbp, in_stock from hub.prices",
+        "options": {}
+      },
+      "id": "ba89cd9f-e0bf-53a8-a2d8-f07fbe0d112f",
+      "name": "Load stored prices",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1500,
+        140
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $('Collect scraped books').first().json;\nconst rows = $input.all().map(i => i.json).filter(r => r.book_id);\nconst old = Object.fromEntries(rows.map(r => [r.book_id, r]));\nconst baseline = rows.length === 0;           // first run seeds the table, no alert storm\nconst dropPct = Number($('Config + pages to crawl').first().json.drop_pct);\nconst events = [];\nfor (const b of s.books) { const o = old[b.book_id];\n  if (!o) { if (!baseline) events.push({ book_id: b.book_id, title: b.title, event: 'new', old_price: null, new_price: b.price_gbp }); continue; }\n  const chg = (b.price_gbp - o.price_gbp) / o.price_gbp * 100;\n  if (b.price_gbp < o.price_gbp) events.push({ book_id: b.book_id, title: b.title, event: 'drop', old_price: o.price_gbp, new_price: b.price_gbp, pct: +chg.toFixed(1), alert: Math.abs(chg) >= dropPct });\n  else if (b.price_gbp > o.price_gbp) events.push({ book_id: b.book_id, title: b.title, event: 'rise', old_price: o.price_gbp, new_price: b.price_gbp, pct: +chg.toFixed(1) });\n  if (!o.in_stock && b.in_stock) events.push({ book_id: b.book_id, title: b.title, event: 'back_in_stock', old_price: o.price_gbp, new_price: b.price_gbp, alert: true });\n  if (o.in_stock && !b.in_stock) events.push({ book_id: b.book_id, title: b.title, event: 'out_of_stock', old_price: o.price_gbp, new_price: b.price_gbp }); }\nconst alerts = events.filter(e => e.alert || e.event === 'new');\nreturn [{ json: { books: s.books, events, alerts, baseline, broken: s.broken, scraped: s.count } }];"
+      },
+      "id": "6e6b1607-dd61-5fef-95a8-d7c5b2ede76f",
+      "name": "Diff vs stored prices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1750,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with up as (insert into hub.prices (book_id,title,price_gbp,in_stock,updated_at) select b->>'book_id', b->>'title', (b->>'price_gbp')::numeric, (b->>'in_stock')::boolean, now() from jsonb_array_elements($1::jsonb) b on conflict (book_id) do update set title=excluded.title, price_gbp=excluded.price_gbp, in_stock=excluded.in_stock, updated_at=now() returning 1), ev as (insert into hub.price_events (book_id,title,event,old_price,new_price) select e->>'book_id', e->>'title', e->>'event', (e->>'old_price')::numeric, (e->>'new_price')::numeric from jsonb_array_elements($2::jsonb) e returning 1) select (select count(*) from up) as upserted, (select count(*) from ev) as events_logged",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($json.books), JSON.stringify($json.events)] }}"
+        }
+      },
+      "id": "7305ce52-858a-5f74-b519-0478de4a0c70",
+      "name": "Upsert prices + log events",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2000,
+        140
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "hubPostgres01",
+          "name": "Hub Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Diff vs stored prices').first().json;\nconst lines = d.alerts.slice(0, 12).map(a => a.event === 'drop' ? `▼ ${a.title}: £${a.old_price} -> £${a.new_price} (${a.pct}%)`\n  : a.event === 'new' ? `＋ NEW ${a.title} £${a.new_price}` : `↺ ${a.event.replace(/_/g, ' ')}: ${a.title} £${a.new_price}`);\nconst broken = d.broken.length > 0;\nconst send = d.alerts.length > 0 || broken;\nreturn [{ json: { send, level: broken ? 'critical' : 'info',\n  title: broken ? 'Scraper selectors returned nothing - site layout changed?' : `${d.alerts.length} price alert(s)`,\n  text: broken ? `Pages with 0/inconsistent results: ${d.broken.map(b => b.page).join(', ')}` : lines.join('\\n'),\n  summary: { scraped: d.scraped, events: d.events.length, alerts: d.alerts.length, baseline: d.baseline, broken_pages: d.broken.length } } }];"
+      },
+      "id": "94e38934-fe4d-56a2-b67f-13c07262edb3",
+      "name": "Compose alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2250,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "56c01446-7cca-5a4d-9b1b-b595dd620c8b",
+              "leftValue": "={{ $json.send }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "56c01446-7cca-5a4d-9b1b-b595dd620c8b",
+      "name": "Anything to alert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2500,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hubNotify00001",
+          "mode": "list",
+          "cachedResultName": "hub-sub-notify"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ae2dc447-fbde-56b2-ad1c-cddce09b266c",
+      "name": "Notify (sub-workflow)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2750,
+        40
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const m = $('Compose alert').first().json;\nreturn [{ json: { ...m.summary, alerted: m.send, title: m.title } }];"
+      },
+      "id": "5725562b-4896-5f34-bcc9-870ef7f71bf3",
+      "name": "Run summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Polite price monitor (books.toscrape.com sandbox)\nSchedule every 6 h or headless.\n\n- Respects `robots.txt`, identifies itself with a User-Agent, **rate-limits** with Split In Batches + Wait\n- HTML Extract -> normalise -> **diff against stored prices** (Postgres)\n- Alerts on drops >= 5 %, new titles, back-in-stock\n- First run only seeds a baseline (no alert storm)\n- **Breakage detector**: if selectors return nothing / mismatched arrays it alerts instead of silently passing\n\nSandbox site built for scraping practice; nothing here targets a real shop.",
+        "height": 300,
+        "width": 600,
+        "color": 4
+      },
+      "id": "b218059c-9942-5531-bcba-1601ef399db0",
+      "name": "Note: hub-price-scraper-alerts",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -260
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule: every 6 hours": {
+      "main": [
+        [
+          {
+            "node": "Config + pages to crawl",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual / headless trigger": {
+      "main": [
+        [
+          {
+            "node": "Config + pages to crawl",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config + pages to crawl": {
+      "main": [
+        [
+          {
+            "node": "robots.txt check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "robots.txt check": {
+      "main": [
+        [
+          {
+            "node": "Respect robots.txt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respect robots.txt": {
+      "main": [
+        [
+          {
+            "node": "Loop pages (Split In Batches)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop pages (Split In Batches)": {
+      "main": [
+        [
+          {
+            "node": "Collect scraped books",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GET catalogue page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET catalogue page": {
+      "main": [
+        [
+          {
+            "node": "HTML Extract: books",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML Extract: books": {
+      "main": [
+        [
+          {
+            "node": "Normalise + breakage detector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalise + breakage detector": {
+      "main": [
+        [
+          {
+            "node": "Rate limit (Wait)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate limit (Wait)": {
+      "main": [
+        [
+          {
+            "node": "Loop pages (Split In Batches)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect scraped books": {
+      "main": [
+        [
+          {
+            "node": "Load stored prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load stored prices": {
+      "main": [
+        [
+          {
+            "node": "Diff vs stored prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diff vs stored prices": {
+      "main": [
+        [
+          {
+            "node": "Upsert prices + log events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert prices + log events": {
+      "main": [
+        [
+          {
+            "node": "Compose alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose alert": {
+      "main": [
+        [
+          {
+            "node": "Anything to alert?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to alert?": {
+      "main": [
+        [
+          {
+            "node": "Notify (sub-workflow)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify (sub-workflow)": {
+      "main": [
+        [
+          {
+            "node": "Run summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 300,
+    "timezone": "Europe/Madrid",
+    "errorWorkflow": "hubErrorHandle1"
+  },
+  "tags": [
+    {
+      "id": "hubtag000000001",
+      "name": "n8n-automation-hub"
+    },
+    {
+      "id": "hubtag_scraper",
+      "name": "scraper"
+    },
+    {
+      "id": "hubtag_schedule",
+      "name": "schedule"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {}
+}
