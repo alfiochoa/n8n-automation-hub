@@ -5,19 +5,19 @@
   {
    "case": "billing-en",
    "http": 200,
-   "latency_ms": 2855,
+   "latency_ms": 4067,
    "classifier": "llm",
    "fallback_reason": null,
    "category": "billing",
    "urgency": "high",
    "expected": "billing",
-   "draft_chars": 287,
+   "draft_chars": 372,
    "match": true
   },
   {
    "case": "outage-en",
    "http": 200,
-   "latency_ms": 2302,
+   "latency_ms": 6094,
    "classifier": "llm",
    "fallback_reason": null,
    "category": "technical",
@@ -29,7 +29,7 @@
   {
    "case": "shipping-es",
    "http": 200,
-   "latency_ms": 2117,
+   "latency_ms": 3908,
    "classifier": "llm",
    "fallback_reason": null,
    "category": "shipping",
@@ -41,7 +41,7 @@
   {
    "case": "sales-en",
    "http": 200,
-   "latency_ms": 2200,
+   "latency_ms": 4097,
    "classifier": "llm",
    "fallback_reason": null,
    "category": "sales",
@@ -53,19 +53,19 @@
   {
    "case": "account-en",
    "http": 200,
-   "latency_ms": 1523,
+   "latency_ms": 4314,
    "classifier": "llm",
    "fallback_reason": null,
    "category": "technical",
    "urgency": "medium",
    "expected": "account",
-   "draft_chars": 300,
+   "draft_chars": 368,
    "match": false
   },
   {
    "case": "injection",
    "http": 200,
-   "latency_ms": 1462,
+   "latency_ms": 5626,
    "classifier": "llm",
    "fallback_reason": null,
    "category": "other",
@@ -77,7 +77,7 @@
   {
    "case": "ambiguous",
    "http": 200,
-   "latency_ms": 1405,
+   "latency_ms": 3036,
    "classifier": "llm",
    "fallback_reason": null,
    "category": "other",

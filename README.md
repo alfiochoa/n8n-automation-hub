@@ -132,6 +132,8 @@ Category accuracy on the 5 labelled cases: **4/5**; fallbacks in the final 14 ca
 
 Memory on the free tier (512 MB) is the real constraint. Measured with the lean profile (`ps` RSS, n8n + gate): **~290 MB headless idle, ~350 MB after boot, ~380 MB median and ~500 MB peak during the test run** (full default n8n idles at 440 MB; the editor UI costs ~90 MB more, which is why the deployed default is headless). It fits, but with little headroom: see [limits](#limits).
 
+**Measured on Render itself** (Render metrics API, free instance, headless + gate): **~295 MB idle, 364 MB peak** while the live test run (24 lead cases, triage validation/dedupe cases and 7 real-LLM calls) hit the public URL; no OOM kill and no restart other than the one I triggered. Cold boot (provision + migrations check + n8n start) took about 1.5 min on the free CPU. Note: Render's edge blocks obviously malicious payloads (the SQL-injection test gets a `403` there, while locally n8n handled it inertly), so that single test is local-only.
+
 ## What it costs
 
 **$0.** Render free web service, Supabase free Postgres, GitHub Actions/Pages on a public repo, Groq free tier, public APIs without keys (Frankfurter, Cloudflare DoH, World Bank, books.toscrape.com).
