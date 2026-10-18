@@ -5,7 +5,7 @@
 [![ci](https://github.com/alfiochoa/n8n-automation-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/alfiochoa/n8n-automation-hub/actions/workflows/ci.yml)
 [![keepalive](https://github.com/alfiochoa/n8n-automation-hub/actions/workflows/keepalive.yml/badge.svg)](https://github.com/alfiochoa/n8n-automation-hub/actions/workflows/keepalive.yml)
 
-**Try it live:** https://alfiochoa.github.io/n8n-automation-hub/ (backend: https://n8n-automation-hub-t2jd.onrender.com, health: `/healthz`). The demo page (`docs/`, GitHub Pages) posts sample leads and support messages to real webhooks and draws the branch that ran. *(Synthetic data only. The free server sleeps, first request takes 30-60 s.)*
+**Try it live:** https://alfiochoa.github.io/n8n-automation-hub/ (backend: https://n8n-automation-hub-t2jd.onrender.com, health: `/healthz`). The demo page (`docs/`, GitHub Pages) posts sample leads and support messages to real webhooks and draws the branch that ran. *(Synthetic data only. The free server sleeps, first request takes 30-90 s.)*
 
 ![demo page](docs/img/demo-live-light.png)
 
